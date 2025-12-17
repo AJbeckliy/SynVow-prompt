@@ -16,9 +16,13 @@ ENV/
 # IDE
 .vscode/
 .idea/
+.windsurfrules
 *.swp
 *.swo
 *~
+
+# Local backups
+prompts/system_prompt copy.txt
 
 # OS
 .DS_Store
