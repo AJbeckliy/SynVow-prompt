@@ -1,17 +1,14 @@
 ﻿# SynVow-Prompt
 
-🛍️ **E-Commerce Prompt Generator** - A ComfyUI custom node for generating AI-powered e-commerce product prompts using any OpenAI-compatible API (including Google Gemini, OpenAI, Claude, etc.).
+🛍️ **SynVow 详情页提示词生成器（v1.2）** - ComfyUI 自定义节点：使用任意 OpenAI-compatible 的多模态接口（支持图片输入）生成电商详情页多屏提示词。
 
 ## ✨ Features
 
-- **AI-Powered Prompt Generation**: Automatically generates creative product descriptions and prompts for e-commerce images using any OpenAI-compatible API
-- **Customizable Parameters**: 
-  - Product name and description input
-  - Design style selection (dropdown menu with 20+ predefined styles)
-  - Seed control for reproducible results (0-99999)
-  - Language support (Chinese/English with automatic detection)
-- **Rich Output**: Generates main copy, sub-copy, and detailed prompts
-- **Seamless ComfyUI Integration**: Works perfectly within the ComfyUI workflow
+- **多图参考增强一致性**：支持 `product_image` + `product_image_2/3/4` 多张参考图（同一商品不同角度/细节），提升主体一致性。
+- **仅锁定主体、重建新场景**：参考图只用于锁定产品/人物外观，忽略原背景；自动生成更吸引人的使用/穿搭/特写等新场景。
+- **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
+- **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
+- **兼容 OpenAI Chat Completions 接口**：支持自定义 `api_url`、`model_name`，适配 Gemini/OpenAI/其他兼容服务。
 
 ## 📦 Installation
 
@@ -37,13 +34,17 @@
 
 ## 🚀 Usage
 
-1. In ComfyUI, find the **🛍️ E-Commerce Prompt Generator (Gemini)** node in the node menu
-2. Configure the parameters:
-   - **product_name**: Enter your product name (e.g., "智能手表")
-   - **product_description**: Provide a brief product description
-   - **design_style**: Select from 20+ predefined design styles
-   - **seed**: Set a seed value (0-99999) for reproducible results
-3. Connect the output to your image generation nodes
+1. 在 ComfyUI 节点菜单中找到：`SynVow详情页提示词生成器`
+2. 填写参数：
+   - `api_url`：你的 OpenAI-compatible 接口地址（例如 `https://api.openai.com/v1` 或第三方代理地址）
+   - `api_key`：你的 API Key（不会写入仓库）
+   - `model_name`：模型名（需支持图片输入才能使用参考图）
+   - `product_type` / `selling_points`：产品类型与核心卖点
+   - `design_style`：页面风格
+   - `scene_preference`：场景偏好（推荐默认“混合（以使用场景为主）”）
+   - `prompt_count`：输出多少屏
+3.（可选但推荐）连接多张参考图：`product_image`、`product_image_2`、`product_image_3`、`product_image_4`
+4. 输出 `prompts_list` 是一个列表（多屏提示词），可直接对接批量生图节点或你自己的批处理流程
 
 ## 📋 Requirements
 
@@ -72,13 +73,18 @@ The node uses any OpenAI-compatible API for prompt generation. You'll need:
 - `product_type` (STRING): The type of your product (e.g., "美妆粉底液")
 - `selling_points` (STRING, multiline): Core selling points of the product
 - `design_style` (COMBO): Predefined design styles dropdown
+- `scene_preference` (COMBO): 场景偏好（生活方式交互/棚拍干净背景/混合）
+- `output_language` (COMBO): 输出语言（中文/英文/自动检测）
 - `seed` (INT): Seed value for reproducible generation (range: 0-99999)
 - `prompt_count` (INT): Number of screens to generate (1-20, default: 10)
-- `product_image` (IMAGE, optional): Product image for visual reference
+- `product_image` (IMAGE, optional): 参考图 1
+- `product_image_2` (IMAGE, optional): 参考图 2
+- `product_image_3` (IMAGE, optional): 参考图 3
+- `product_image_4` (IMAGE, optional): 参考图 4
 
 **Outputs:**
-- `prompts_list` (STRING[]): List of generated prompts for each screen
-- `debug_info` (STRING): Debug information including raw API response
+- `prompts_list` (STRING[]): 多屏提示词列表（一个元素=一屏完整提示词）
+- `debug_info` (STRING): 调试信息（包含原始模型输出）
 
 ## 🎨 Available Design Styles
 
