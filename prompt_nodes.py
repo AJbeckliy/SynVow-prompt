@@ -75,6 +75,8 @@ class EcommercePromptGenerator:
         start_markers = [
             r"(?m)^\s*屏幕定位\s*：",
             r"(?m)^\s*Screen Role\s*:",
+            r"(?m)^\s*Main Title\s*:",
+            r"(?m)^\s*主标题\s*：",
         ]
         for pat in start_markers:
             matches = list(re.finditer(pat, s))
@@ -98,6 +100,85 @@ class EcommercePromptGenerator:
 
         return [s]
 
+    def _clean_code_fences(self, response_text):
+        cleaned = (response_text or "").strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        return cleaned.strip()
+
+    def _parse_response_to_prompts_list(self, response_text, expected_count):
+        method = "json"
+        prompts_list = []
+        try:
+            cleaned = self._clean_code_fences(response_text)
+            prompts_list = json.loads(cleaned)
+            if not isinstance(prompts_list, list):
+                method = "split:not_list"
+                prompts_list = self.split_response_to_screens(response_text, expected_count)
+        except json.JSONDecodeError:
+            method = "split:json_decode_error"
+            prompts_list = self.split_response_to_screens(response_text, expected_count)
+        except Exception:
+            method = "split:exception"
+            prompts_list = self.split_response_to_screens(response_text, expected_count)
+
+        normalized = []
+        for item in prompts_list if isinstance(prompts_list, list) else [prompts_list]:
+            text = self.extract_prompt_text(item)
+            if text is None:
+                continue
+            normalized.append(self._strip_screen_role_header(text))
+
+        if normalized:
+            prompts_list = normalized
+        else:
+            prompts_list = []
+
+        prompts_list = self.enforce_prompt_count(prompts_list, expected_count, response_text)
+        if len(prompts_list) > expected_count:
+            prompts_list = prompts_list[:expected_count]
+
+        return prompts_list, method
+
+    def _strip_screen_role_header(self, prompt_text):
+        if not isinstance(prompt_text, str):
+            return prompt_text
+
+        s = prompt_text.replace("\r\n", "\n").replace("\r", "\n")
+        import re
+
+        m0 = re.search(r"(?m)^\s*(Main Copy\s*:|主文案\s*：|主文案\s*:)", s)
+        if m0:
+            return s[m0.start():].lstrip()
+
+        m = re.search(r"(?m)^\s*(Main Title\s*:|主标题\s*：)", s)
+        if m:
+            return s[m.start():].lstrip()
+
+        m2 = re.search(r"(?m)^\s*(Screen Role\s*:|屏幕定位\s*：)", s)
+        if m2:
+            after = s[m2.end():]
+            after = re.sub(r"^\s*\n", "", after)
+            return after.lstrip()
+
+        return s.strip()
+
+    def _is_prompt_structurally_complete(self, prompt_text):
+        if not isinstance(prompt_text, str):
+            return False
+        s = prompt_text.strip()
+        if not s:
+            return False
+
+        has_main = ("主文案" in s) or ("Main Copy" in s) or ("Main Title" in s) or ("主标题" in s)
+        has_sub = ("副文案" in s) or ("SubTitle" in s) or ("Subtitle" in s) or ("副标题" in s)
+
+        return has_main and has_sub
+
     def enforce_prompt_count(self, prompts_list, prompt_count, raw_response):
         try:
             pc = int(prompt_count)
@@ -119,6 +200,14 @@ class EcommercePromptGenerator:
             merged_tail = "\n\n".join([t for t in tail if isinstance(t, str) and t.strip()] or [str(t) for t in tail])
             head.append(merged_tail)
             return head
+
+        if len(prompts_list) == 1 and isinstance(prompts_list[0], str):
+            parts = self.split_response_to_screens(prompts_list[0], pc)
+            if parts and len(parts) >= pc:
+                head = parts[:pc - 1]
+                tail = parts[pc - 1:]
+                head.append("\n\n".join(tail).strip())
+                return head
 
         parts = self.split_response_to_screens(raw_response, pc)
         if parts and len(parts) >= pc:
@@ -375,8 +464,14 @@ class EcommercePromptGenerator:
         else:
             scene_instruction = "以全新设计的使用场景为主（优先有人物/手部交互 + 真实环境背景），少量屏幕可用干净棚拍用于参数/结构说明；禁止把参考图背景当作必须复刻的场景。硬性禁止：白底棚拍、白底平铺、俯拍平铺、证件照式正面商品图。"
 
-        user_req = f"""
-请为以下产品设计 {prompt_count} 屏详情页提示词：
+        try:
+            target_count = int(prompt_count)
+        except Exception:
+            target_count = 10
+        target_count = max(1, min(20, target_count))
+
+        base_user_req = f"""
+请为以下产品设计 {{COUNT}} 屏详情页提示词：
 1. 产品类型: {product_type}
 2. 核心卖点: {selling_points}
 3. 设计风格: {design_style}
@@ -395,64 +490,96 @@ class EcommercePromptGenerator:
 - 衣服：模特穿上该衣服的上身/全身展示，搭配符合风格的环境（街拍/室内影棚/生活方式），但衣服版型与细节必须严格一致。
 - 沐浴露/洗面奶：近距离使用特写（挤压/起泡/涂抹/水珠），强调质感与使用体验。
 
-请严格输出 JSON 字符串列表 (List[str])，列表长度必须严格等于 {prompt_count}。
+请严格输出 JSON 字符串列表 (List[str])，列表长度必须严格等于 {{COUNT}}。
 每个元素对应一屏（一个字符串=一屏完整提示词正文），字符串内部允许换行。
+每个元素的正文必须直接从“主文案：/Main Copy:”开始（或从“主标题：/Main Title:”开始），不要在开头输出任何“屏幕定位/Screen Role”或“首屏/次屏/卖点总览/核心机理”等屏幕标题行。
 不要输出 Markdown、不要代码块、不要输出任何额外解释。
 """
 
-        print(f"🎨 Generating {prompt_count}-screen prompts...")
-        result = self.call_llm_vision(api_url, api_key, model_name, system_instruction, user_req, base64_images if base64_images else None, seed)
+        collected = []
+        raw_responses = []
+        attempts = []
+        max_per_call = 6
+        max_calls = 10
+        call_idx = 0
+        last_error = None
 
-        # 处理 API 调用结果
-        if not result["success"]:
-            error_msg = f"[API_ERROR] {result['error']}"
-            return ([error_msg], json.dumps({"input_summary": user_req, "error": result['error'], "reference_image_count": len(base64_images)}, ensure_ascii=False))
+        while len(collected) < target_count and call_idx < max_calls:
+            remaining = target_count - len(collected)
+            request_n = remaining if remaining <= max_per_call else max_per_call
 
-        response = result["content"]
+            user_req = base_user_req.replace("{COUNT}", str(request_n))
+            if len(collected) > 0:
+                user_req += f"\n\n补充要求：这是续写生成。请生成新的 {request_n} 屏，不要重复之前的内容与角度。"
 
-        # Parse the response into a list
-        prompts_list = []
-        try:
-            # Clean up potential markdown code blocks
-            cleaned_response = response.strip()
-            if cleaned_response.startswith("```json"):
-                cleaned_response = cleaned_response[7:]
-            if cleaned_response.startswith("```"):
-                cleaned_response = cleaned_response[3:]
-            if cleaned_response.endswith("```"):
-                cleaned_response = cleaned_response[:-3]
+            print(f"🎨 Generating {request_n} screen prompts... ({len(collected)}/{target_count})")
+            result = self.call_llm_vision(api_url, api_key, model_name, system_instruction, user_req, base64_images if base64_images else None, seed)
+            call_idx += 1
 
-            prompts_list = json.loads(cleaned_response.strip())
-
-            if not isinstance(prompts_list, list):
-                # Fallback if not a list
-                print("⚠️ Output is not a list, trying to split by newlines...")
-                prompts_list = self.split_response_to_screens(response, prompt_count)
-
-        except json.JSONDecodeError:
-            print("⚠️ Failed to parse JSON response. Falling back to line splitting.")
-            prompts_list = self.split_response_to_screens(response, prompt_count)
-
-        except Exception as e:
-            print(f"❌ Error parsing response: {str(e)}")
-            prompts_list = [response]
-
-        # Ensure we have a list, even if it's single item
-        if not prompts_list:
-            prompts_list = ["Error: No prompts generated."]
-
-        normalized_prompts = []
-        for item in prompts_list:
-            text = self.extract_prompt_text(item)
-            if text is None:
+            if not result["success"]:
+                last_error = result.get("error")
+                attempts.append({
+                    "call": call_idx,
+                    "requested": request_n,
+                    "parsed": 0,
+                    "accepted": 0,
+                    "method": "api_error",
+                    "error": last_error,
+                })
                 continue
-            normalized_prompts.append(text)
-        if normalized_prompts:
-            prompts_list = normalized_prompts
 
-        prompts_list = self.enforce_prompt_count(prompts_list, prompt_count, response)
+            response = result.get("content", "")
+            raw_responses.append(response)
 
-        return (prompts_list, json.dumps({"input_summary": user_req, "raw_response": response, "reference_image_count": len(base64_images)}, ensure_ascii=False))
+            batch_prompts, method = self._parse_response_to_prompts_list(response, request_n)
+
+            accepted = []
+            rejected = 0
+            for p in batch_prompts:
+                if self._is_prompt_structurally_complete(p):
+                    accepted.append(p)
+                else:
+                    rejected += 1
+
+            if not accepted and batch_prompts:
+                accepted = batch_prompts
+
+            if len(accepted) > request_n:
+                accepted = accepted[:request_n]
+
+            collected.extend(accepted)
+
+            attempts.append({
+                "call": call_idx,
+                "requested": request_n,
+                "parsed": len(batch_prompts),
+                "accepted": len(accepted),
+                "rejected": rejected,
+                "method": method,
+                "response_chars": len(response) if isinstance(response, str) else None,
+            })
+
+        if len(collected) > target_count:
+            collected = collected[:target_count]
+
+        if len(collected) < target_count:
+            missing = target_count - len(collected)
+            msg = "[GENERATION_FAILED] Unable to generate enough prompts."
+            if last_error:
+                msg = f"[GENERATION_FAILED] {last_error}"
+            collected.extend([msg] * missing)
+
+        debug_payload = {
+            "input_summary": base_user_req.replace("{COUNT}", str(target_count)),
+            "reference_image_count": len(base64_images),
+            "attempts": attempts,
+        }
+        if raw_responses:
+            debug_payload["raw_response"] = raw_responses[-1]
+        if last_error:
+            debug_payload["error"] = last_error
+
+        return (collected, json.dumps(debug_payload, ensure_ascii=False))
 
 
 class ListToBatchConverter:
