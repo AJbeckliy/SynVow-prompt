@@ -1,14 +1,15 @@
 ﻿# SynVow-Prompt
 
-🛍️ **SynVow 详情页提示词生成器（v1.2）** - ComfyUI 自定义节点：使用任意 OpenAI-compatible 的多模态接口（支持图片输入）生成电商详情页多屏提示词。
+🛍️ **SynVow 提示词工具集（v1.3）** - ComfyUI 自定义节点：提供电商详情页多屏提示词生成、文生图提示词优化、图生图参考提示词优化等功能，支持任意 OpenAI-compatible 接口。
 
 ## ✨ Features
 
-- **多图参考增强一致性**：支持 `product_image` + `product_image_2/3/4` 多张参考图（同一商品不同角度/细节），提升主体一致性。
-- **仅锁定主体、重建新场景**：参考图只用于锁定产品/人物外观，忽略原背景；自动生成更吸引人的使用/穿搭/特写等新场景。
+- **电商详情页多屏生成**：支持 `product_image` + `product_image_2/3/4` 多张参考图，自动生成多屏详情页提示词。
+- **文生图提示词控制器**：双 LLM Schema 流程，支持版式选择、文字策略（不加/保留/优化/自动生成）、优化强度等精细控制。
+- **图生图提示词控制器**：基于参考图 + 可选主体图，支持风格/构图/色彩/版式等多维度参考模式。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
-- **兼容 OpenAI Chat Completions 接口**：支持自定义 `api_url`、`model_name`，适配 Gemini/OpenAI/其他兼容服务。
+- **兼容 OpenAI Chat Completions 接口**：支持自定义 API 地址和模型名，适配 Gemini/OpenAI/其他兼容服务。
 
 ## 📦 Installation
 
@@ -34,64 +35,84 @@
 
 ## 🚀 Usage
 
-1. 在 ComfyUI 节点菜单中找到：`SynVow详情页提示词生成器`
-2. 填写参数：
-   - `api_url`：你的 OpenAI-compatible 接口地址（例如 `https://api.openai.com/v1` 或第三方代理地址）
-   - `api_key`：你的 API Key（不会写入仓库）
-   - `model_name`：模型名（需支持图片输入才能使用参考图）
-   - `product_type` / `selling_points`：产品类型与核心卖点
-   - `design_style`：页面风格
-   - `scene_preference`：场景偏好（推荐默认“混合（以使用场景为主）”）
-   - `prompt_count`：输出多少屏
-3.（可选但推荐）连接多张参考图：`product_image`、`product_image_2`、`product_image_3`、`product_image_4`
-4. 输出 `prompts_list` 是一个列表（多屏提示词），可直接对接批量生图节点或你自己的批处理流程
+所有节点位于 ComfyUI 节点菜单的 **SynVow-prompt** 分类下。
+
+### SynVow 详情页提示词生成器
+1. 填写 `api_url`、`api_key`、`model_name`
+2. 设置 `product_type`、`selling_points`、`design_style`、`scene_preference`、`prompt_count`
+3. （可选）连接参考图：`product_image` ~ `product_image_4`
+4. 输出 `prompts_list`（多屏提示词列表），可直接对接批量生图流程
+
+### SynVow-文生图提示词控制器
+1. 填写 `base_url`（完整 API 地址）、`apikey`、`models_name`
+2. 输入 `user_prompt`，选择 `layout_type`、`text_policy`、`optimize_strength`、`aspect_ratio`
+3. （可选）填写 `exact_text` 指定画面文字
+4. 输出 `optimized_prompt` + `debug_info`
+
+### SynVow-图生图提示词控制器
+1. 填写 `base_url`、`apikey`、`models_name`
+2. 连接 `reference_image`，选择 `reference_mode` 和 `target_aspect_ratio`
+3. （可选）连接 `subject_image`（主体图）
+4. 输出 `optimized_prompt` + `reference_summary`
 
 ## 📋 Requirements
 
 - ComfyUI
 - Python 3.8+
-- An API key for any OpenAI-compatible LLM service (e.g., OpenAI, Google Gemini, Anthropic Claude, etc.)
-- No additional Python packages required (uses Python standard library)
-
-## ⚙️ Configuration
-
-The node uses any OpenAI-compatible API for prompt generation. You'll need:
-- A valid API key for your chosen LLM service
-- The API endpoint URL (e.g., `https://api.openai.com/v1` or your custom endpoint)
-- Internet connection for API access
+- `requests`、`urllib3`（文生图/图生图控制器依赖，安装后自动满足）
+- 一个 OpenAI-compatible LLM 服务的 API Key
 
 ## 🔧 Node Details
 
-### EcommercePromptGenerator
+所有节点 **Category**: `SynVow-prompt`
 
-**Category**: `🛒 E-Commerce AI/Prompting`
+### SynVow 详情页提示词生成器（EcommercePromptGenerator）
 
-**Inputs:**
-- `api_url` (STRING): API endpoint URL (default: `https://api.openai.com/v1`)
-- `api_key` (STRING): Your API key
-- `model_name` (STRING): Model name (default: `gemini-2.0-flash-exp`)
-- `product_type` (STRING): The type of your product (e.g., "美妆粉底液")
-- `selling_points` (STRING, multiline): Core selling points of the product
-- `design_style` (COMBO): Predefined design styles dropdown
-- `scene_preference` (COMBO): 场景偏好（生活方式交互/棚拍干净背景/混合）
-- `output_language` (COMBO): 输出语言（中文/英文/自动检测）
-- `seed` (INT): Seed value for reproducible generation (range: 0-99999)
-- `prompt_count` (INT): Number of screens to generate (1-20, default: 10)
-- `product_image` (IMAGE, optional): 参考图 1
-- `product_image_2` (IMAGE, optional): 参考图 2
-- `product_image_3` (IMAGE, optional): 参考图 3
-- `product_image_4` (IMAGE, optional): 参考图 4
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `api_url` | STRING | API 地址（如 `https://api.openai.com/v1`） |
+| `api_key` | STRING | API Key |
+| `model_name` | STRING | 模型名 |
+| `product_type` | STRING | 产品类型 |
+| `selling_points` | STRING | 核心卖点 |
+| `design_style` | COMBO | 设计风格（9 种预设） |
+| `scene_preference` | COMBO | 场景偏好 |
+| `output_language` | COMBO | 输出语言 |
+| `prompt_count` | INT | 生成屏数（1-20） |
+| `product_image` ~ `product_image_4` | IMAGE（可选） | 产品参考图 |
 
-**Outputs:**
-- `prompts_list` (STRING[]): 多屏提示词列表（一个元素=一屏完整提示词）
-- `debug_info` (STRING): 调试信息（包含原始模型输出）
+**输出**：`prompts_list`（STRING[] 多屏提示词）、`debug_info`
 
-## 🎨 Available Design Styles
+### SynVow-文生图提示词控制器（RHTxt2ImgPromptOptimizer）
 
-The node includes 9 carefully curated design styles:
-- 简约 Ins 风, 高级奢华, 科技感, 清新自然
-- 国潮风, 活泼撞色, 极简工业风, 梦幻唯美
-- 亚马逊风格
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `user_prompt` | STRING | 用户描述 |
+| `base_url` | STRING | 完整 API 地址 |
+| `apikey` | STRING | API Key |
+| `models_name` | STRING | 模型名 |
+| `layout_type` | COMBO | 版式（自动判断/纯画面/图文混排海报/电商主图/社媒封面） |
+| `text_policy` | COMBO | 文字策略（不加/保留/优化/自动生成） |
+| `optimize_strength` | COMBO | 优化强度（标准/增强） |
+| `aspect_ratio` | COMBO | 画面比例 |
+| `exact_text` | STRING | 指定画面文字 |
+
+**输出**：`optimized_prompt`、`debug_info`
+
+### SynVow-图生图提示词控制器（RHImg2ImgPromptOptimizer）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `reference_image` | IMAGE | 参考图 |
+| `user_prompt` | STRING | 用户描述 |
+| `base_url` | STRING | 完整 API 地址 |
+| `apikey` | STRING | API Key |
+| `models_name` | STRING | 模型名 |
+| `reference_mode` | COMBO | 参考模式（自动/综合/风格/构图/色彩光影/版式） |
+| `target_aspect_ratio` | COMBO | 目标画面比例 |
+| `subject_image` | IMAGE（可选） | 主体图 |
+
+**输出**：`optimized_prompt`、`reference_summary`
 
 ## 📝 License
 
