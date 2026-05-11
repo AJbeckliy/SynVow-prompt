@@ -412,7 +412,7 @@ class EcommercePromptGenerator:
         }
         
         if seed is not None:
-            payload["seed"] = seed
+            payload["seed"] = seed % 2147483647  # Constrain to INT32 max
 
         try:
             print(f"🔗 Calling API: {url}")
@@ -500,7 +500,7 @@ class EcommercePromptGenerator:
         raw_responses = []
         attempts = []
         max_per_call = 6
-        max_calls = 10
+        max_calls = 30
         call_idx = 0
         last_error = None
 
@@ -513,7 +513,11 @@ class EcommercePromptGenerator:
                 user_req += f"\n\n补充要求：这是续写生成。请生成新的 {request_n} 屏，不要重复之前的内容与角度。"
 
             print(f"🎨 Generating {request_n} screen prompts... ({len(collected)}/{target_count})")
-            result = self.call_llm_vision(api_url, api_key, model_name, system_instruction, user_req, base64_images if base64_images else None, seed)
+            
+            # Vary seed for each call to avoid identical results
+            current_seed = seed + call_idx if seed is not None else None
+            
+            result = self.call_llm_vision(api_url, api_key, model_name, system_instruction, user_req, base64_images if base64_images else None, current_seed)
             call_idx += 1
 
             if not result["success"]:
