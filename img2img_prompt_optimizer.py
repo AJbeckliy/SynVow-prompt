@@ -103,7 +103,7 @@ class RHImg2ImgPromptOptimizer:
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("optimized_prompt", "reference_summary")
     FUNCTION = "optimize"
-    CATEGORY = "synvow-prompts-rh"
+    CATEGORY = "SynVow-prompt"
     DESCRIPTION = "图生图提示词控制器（独立版，自定义 API 地址和模型）"
 
     @classmethod

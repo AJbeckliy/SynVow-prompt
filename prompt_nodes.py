@@ -314,7 +314,7 @@ class EcommercePromptGenerator:
     OUTPUT_IS_LIST = (True, False)
 
     FUNCTION = "generate_prompts_with_vision"
-    CATEGORY = "🛒 E-Commerce AI/Prompting"
+    CATEGORY = "SynVow-prompt"
 
     # --- 辅助函数：ComfyUI 图片 转 Base64 ---
     def tensor_to_base64(self, image, index=0):
@@ -614,7 +614,7 @@ class ListToBatchConverter:
     OUTPUT_IS_LIST = (False,)
 
     FUNCTION = "convert_list_to_batches"
-    CATEGORY = "🛒 E-Commerce AI/Prompting"
+    CATEGORY = "SynVow-prompt"
 
     def convert_list_to_batches(self, prompts_list, batch_size):
         if not prompts_list or not prompts_list.strip():
