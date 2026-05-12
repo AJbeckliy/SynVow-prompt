@@ -1,5 +1,35 @@
 """synvow-prompts-rh 通用工具模块"""
 
+import os
+import time
+from pathlib import Path
+
+import requests
+
+RUNNINGHUB_LLM_CHAT_URL = "https://llm.runninghub.cn/v1/chat/completions"
+RUNNINGHUB_LLM_MODELS_URL = "https://llm.runninghub.ai/v1/models"
+RUNNINGHUB_DEFAULT_MODELS = [
+    "google/gemini-3.1-pro-preview",
+    "gemini-3.1-pro-preview",
+    "google/gemini-3.1-flash-lite-preview",
+    "gemini-3.1-flash-lite-preview",
+]
+MODEL_CACHE_TTL_SECONDS = 3600
+RUNNINGHUB_MODEL_CACHE = {"expires_at": 0.0, "models": None}
+RUNNINGHUB_FALLBACK_MODELS = [
+    "doubao-seed-1-6-251015",
+    "doubao-seed-2-0-pro-260215",
+    "doubao-seed-2-0-lite-260215",
+    "DeepSeek-V3",
+    "Qwen3-235B-A22B-Instruct-2507",
+    "gemini-2.5-flash",
+    "gpt-5",
+    "gemini-3-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+    "GLM-4.6v",
+]
+
 
 def parse_chat_response(data):
     """解析 Gemini/OpenAI 聊天响应格式，返回文本内容。"""
@@ -25,3 +55,132 @@ def make_headers(apikey):
         "Authorization": f"Bearer {apikey}",
         "Content-Type": "application/json",
     }
+
+
+def fetch_runninghub_models(force=False):
+    now = time.time()
+    cached = RUNNINGHUB_MODEL_CACHE.get("models")
+    if not force and cached and now < float(RUNNINGHUB_MODEL_CACHE.get("expires_at", 0)):
+        return list(cached)
+
+    try:
+        response = requests.get(RUNNINGHUB_LLM_MODELS_URL, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        models = [
+            str(item.get("id")).strip()
+            for item in data.get("data", [])
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        ]
+        if models:
+            RUNNINGHUB_MODEL_CACHE["models"] = models
+            RUNNINGHUB_MODEL_CACHE["expires_at"] = now + MODEL_CACHE_TTL_SECONDS
+            return models
+    except Exception as exc:
+        print(f"[SynVow LLM] Failed to fetch RunningHub models, using fallback: {type(exc).__name__}")
+
+    return list(RUNNINGHUB_FALLBACK_MODELS)
+
+
+def default_runninghub_model(models):
+    for model in RUNNINGHUB_DEFAULT_MODELS:
+        if model in models:
+            return model
+    return models[0]
+
+
+def get_runninghub_api_key():
+    for env_name in ("RUNNINGHUB_LLM_API_KEY", "RH_LLM_API_KEY"):
+        api_key = (os.environ.get(env_name) or "").strip()
+        if api_key:
+            return api_key
+
+    env_path = Path(__file__).resolve().parent / "config" / ".env"
+    try:
+        if env_path.exists():
+            env_data = _read_env_file(env_path)
+            for env_name in ("RUNNINGHUB_LLM_API_KEY", "RH_LLM_API_KEY"):
+                api_key = (env_data.get(env_name) or "").strip()
+                if api_key:
+                    return api_key
+    except Exception:
+        pass
+
+    try:
+        from server import PromptServer
+        api_key = getattr(PromptServer.instance, "shared_api_key", None)
+        if api_key and isinstance(api_key, str) and api_key.strip() and api_key != "unknown":
+            return api_key.strip()
+    except Exception:
+        pass
+
+    for env_name in ("RH_API_KEY", "RUNNINGHUB_API_KEY"):
+        api_key = (os.environ.get(env_name) or "").strip()
+        if api_key:
+            return api_key
+
+    try:
+        if env_path.exists():
+            env_data = _read_env_file(env_path)
+            for env_name in ("RH_API_KEY", "RUNNINGHUB_API_KEY"):
+                api_key = (env_data.get(env_name) or "").strip()
+                if api_key:
+                    return api_key
+    except Exception:
+        pass
+
+    return ""
+
+
+def _read_env_file(env_path):
+    result = {}
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value:
+            result[key] = value
+    return result
+
+
+class SynVowLLMSettings:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "base_url": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": ""}),
+                "model_name": ("STRING", {"default": ""}),
+            },
+        }
+
+    RETURN_TYPES = ("SYNVOW_LLM_CONFIG",)
+    RETURN_NAMES = ("llm_config",)
+    FUNCTION = "get_config"
+    CATEGORY = "SynVow-prompt"
+    DESCRIPTION = "SynVow LLM 统一配置"
+
+    def get_config(self, base_url, apikey, model_name):
+        return ({
+            "base_url": base_url,
+            "apikey": apikey,
+            "model_name": model_name,
+        },)
+
+
+def resolve_llm_config(llm_config=None, base_url="", apikey="", model_name=""):
+    config = llm_config if isinstance(llm_config, dict) else {}
+
+    if config:
+        resolved_base_url = (config.get("base_url") or config.get("api_url") or base_url or "").strip()
+        resolved_apikey = (config.get("apikey") or config.get("api_key") or apikey or "").strip()
+        resolved_model = (config.get("model_name") or config.get("models_name") or model_name or "").strip()
+        return resolved_base_url, resolved_apikey, resolved_model
+
+    resolved_base_url = (base_url or RUNNINGHUB_LLM_CHAT_URL).strip()
+    resolved_apikey = (apikey or get_runninghub_api_key()).strip()
+    resolved_model = (model_name or "").strip()
+    return resolved_base_url, resolved_apikey, resolved_model

@@ -9,7 +9,7 @@ import re
 import requests
 import urllib3
 
-from .utils import parse_chat_response, make_headers
+from .utils import parse_chat_response, make_headers, resolve_llm_config, fetch_runninghub_models, default_runninghub_model
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -61,6 +61,11 @@ def _chat(base_url, headers, model, system_prompt, user_message):
         response_text = res.text[:2000] if res.text else "<empty response>"
         print(f"[RH Txt2Img Optimizer] HTTP {res.status_code} url={res.url}")
         print(f"[RH Txt2Img Optimizer] response={response_text}")
+        if res.status_code == 401 and "only SHARED" in response_text:
+            raise RuntimeError(
+                "RunningHub LLM 认证失败：当前账号/API Key 不是 LLM 网关接受的 SHARED/enterprise key。"
+                "请换用支持 LLM 的 RunningHub 企业/共享 Key，或连接 SynVow LLM Settings 使用第三方接口。"
+            ) from e
         raise RuntimeError(
             f"API request failed: HTTP {res.status_code}; response={response_text}"
         ) from e
@@ -145,12 +150,11 @@ def render_final_prompt(base_url, headers, model, schema: dict) -> str:
 class RHTxt2ImgPromptOptimizer:
     @classmethod
     def INPUT_TYPES(cls):
+        models = fetch_runninghub_models()
         return {
             "required": {
                 "user_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "base_url": ("STRING", {"default": ""}),
-                "apikey": ("STRING", {"default": ""}),
-                "models_name": ("STRING", {"default": ""}),
+                "model": (models, {"default": default_runninghub_model(models)}),
                 "layout_type": (
                     ["自动判断", "纯画面", "图文混排海报", "电商主图", "社媒封面"],
                     {"default": "自动判断"},
@@ -171,6 +175,9 @@ class RHTxt2ImgPromptOptimizer:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "exact_text": ("STRING", {"multiline": True, "default": ""}),
             },
+            "optional": {
+                "llm_config": ("SYNVOW_LLM_CONFIG",),
+            },
         }
 
     RETURN_TYPES = ("STRING", "STRING")
@@ -187,9 +194,18 @@ class RHTxt2ImgPromptOptimizer:
     _TEXT_POLICY_MAP = {"不加文字": "none", "保留原文": "preserve", "优化原文": "enhance", "自动生成": "generate"}
     _STRENGTH_MAP = {"light": "标准", "standard": "标准", "strong": "增强"}
 
-    def optimize(self, user_prompt, base_url, apikey, models_name,
+    def optimize(self, user_prompt, model,
                  layout_type, optimize_strength,
-                 aspect_ratio="16:9", seed=0, text_policy="保留原文", exact_text=""):
+                 aspect_ratio="16:9", seed=0, text_policy="保留原文", exact_text="",
+                 llm_config=None, base_url="", apikey="", models_name=""):
+        base_url, apikey, models_name = resolve_llm_config(
+            llm_config,
+            base_url=base_url,
+            apikey=apikey,
+            model_name=models_name or model,
+        )
+        if not base_url or not apikey or not models_name:
+            raise RuntimeError("缺少 LLM 配置：请登录 RunningHub/设置 RH_API_KEY，或连接 SynVow LLM Settings。")
         optimize_strength = self._STRENGTH_MAP.get(optimize_strength, optimize_strength)
         headers = make_headers(apikey)
         exact_text = exact_text or ""

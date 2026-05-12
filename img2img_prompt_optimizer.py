@@ -14,7 +14,7 @@ import requests
 import urllib3
 from PIL import Image
 
-from .utils import parse_chat_response, make_headers
+from .utils import parse_chat_response, make_headers, resolve_llm_config, fetch_runninghub_models, default_runninghub_model
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -77,13 +77,12 @@ def _parse_output(raw: str):
 class RHImg2ImgPromptOptimizer:
     @classmethod
     def INPUT_TYPES(cls):
+        models = fetch_runninghub_models()
         return {
             "required": {
                 "reference_image": ("IMAGE",),
                 "user_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "base_url": ("STRING", {"default": ""}),
-                "apikey": ("STRING", {"default": ""}),
-                "models_name": ("STRING", {"default": ""}),
+                "model": (models, {"default": default_runninghub_model(models)}),
                 "reference_mode": (
                     ["自动判断", "综合参考", "只参考风格", "只参考构图", "只参考色彩光影", "只参考版式"],
                     {"default": "自动判断"},
@@ -96,6 +95,7 @@ class RHImg2ImgPromptOptimizer:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
+                "llm_config": ("SYNVOW_LLM_CONFIG",),
                 "subject_image": ("IMAGE",),
             },
         }
@@ -111,8 +111,17 @@ class RHImg2ImgPromptOptimizer:
         key = json.dumps({k: str(v) for k, v in kwargs.items() if k not in ("reference_image", "subject_image")}, sort_keys=True, ensure_ascii=False)
         return hashlib.md5(key.encode()).hexdigest()
 
-    def optimize(self, reference_image, user_prompt, base_url, apikey, models_name,
-                 reference_mode, target_aspect_ratio, seed=0, subject_image=None):
+    def optimize(self, reference_image, user_prompt, model,
+                 reference_mode, target_aspect_ratio, seed=0, subject_image=None,
+                 llm_config=None, base_url="", apikey="", models_name=""):
+        base_url, apikey, models_name = resolve_llm_config(
+            llm_config,
+            base_url=base_url,
+            apikey=apikey,
+            model_name=models_name or model,
+        )
+        if not base_url or not apikey or not models_name:
+            raise RuntimeError("缺少 LLM 配置：请登录 RunningHub/设置 RH_API_KEY，或连接 SynVow LLM Settings。")
         headers = make_headers(apikey)
 
         ref_mode_en = _REFERENCE_MODE_MAP.get(reference_mode, reference_mode)
@@ -140,6 +149,11 @@ class RHImg2ImgPromptOptimizer:
             res.raise_for_status()
         except requests.exceptions.HTTPError as e:
             response_text = res.text[:2000] if res.text else "<empty response>"
+            if res.status_code == 401 and "only SHARED" in response_text:
+                raise RuntimeError(
+                    "RunningHub LLM 认证失败：当前账号/API Key 不是 LLM 网关接受的 SHARED/enterprise key。"
+                    "请换用支持 LLM 的 RunningHub 企业/共享 Key，或连接 SynVow LLM Settings 使用第三方接口。"
+                ) from e
             raise RuntimeError(f"API request failed: HTTP {res.status_code}; response={response_text}") from e
 
         raw = parse_chat_response(res.json())
