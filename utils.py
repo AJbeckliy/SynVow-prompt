@@ -89,6 +89,20 @@ def default_runninghub_model(models):
     return models[0]
 
 
+def _read_env_file(env_path):
+    result = {}
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value:
+            result[key] = value
+    return result
+
+
 def get_runninghub_api_key():
     for env_name in ("RUNNINGHUB_LLM_API_KEY", "RH_LLM_API_KEY"):
         api_key = (os.environ.get(env_name) or "").strip()
@@ -130,20 +144,6 @@ def get_runninghub_api_key():
         pass
 
     return ""
-
-
-def _read_env_file(env_path):
-    result = {}
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and value:
-            result[key] = value
-    return result
 
 
 class SynVowLLMSettings:
