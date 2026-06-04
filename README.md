@@ -8,6 +8,7 @@
 - **香蕉电商详情页 V3（带参考图）**：新增 `香蕉电商详情页提示词生成器V3-带参考图`，支持 8 张产品参考图 + 4 张风格参考图，严格区分产品外观参考和风格参考。
 - **文生图提示词控制器**：双 LLM Schema 流程，节点内置 RunningHub `model` 下拉框，支持版式选择、文字策略（不加/保留/优化/自动生成）、优化强度等精细控制。
 - **图生图提示词控制器**：基于参考图 + 可选主体图，节点内置 RunningHub `model` 下拉框，支持风格/构图/色彩/版式等多维度参考模式。
+- **RH GPT-image2 长卷详情页工作流**：新增 4 个 RunningHub 版详情页节点，支持规划 → 页面结构 → 批量生图提示词 → 长图拼接，适合 9:21 多屏电商详情页。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
 - **RunningHub + 第三方双通道**：默认使用 RunningHub LLM 请求方式；需要第三方接口时，连接 `SynVow LLM Settings` 作为备用配置。
@@ -63,6 +64,24 @@
 2. 默认走 RunningHub LLM 封装；如需第三方接口，连接 `SynVow LLM Settings` 的 `llm_config`
 3. （可选）连接 `subject_image`（主体图）
 4. 输出 `optimized_prompt` + `reference_summary`
+
+### RH GPT-image2 长卷详情页工作流
+节点位于 **SynVow-prompt / RH详情页** 分类下，建议按下面顺序连接：
+
+1. `RH GPT-image2详情页规划`
+   - 输入产品图、参考图、产品名称、产品品类、卖点/文案/设计补充、切片数量。
+   - 输出 `叙事结构_JSON`、`长卷视觉母版说明`、`叙事结构_Markdown`。
+2. `RH GPT-image2详情页结构`
+   - 接入规划节点输出的 `叙事结构_JSON` 和 `长卷视觉母版说明`。
+   - 输出每一屏的页面结构蓝图。
+3. `RH GPT-image2详情页批量提示词`
+   - 接入页面结构蓝图和视觉母版说明。
+   - 输出 `提示词列表`（STRING[]），可直接接批量生图节点。
+4. `RH 详情页图像列表顺序拼接长图`
+   - 接入生图后的 `IMAGE` 列表。
+   - 自动按第一张图宽度统一缩放，并按列表顺序竖向拼接成长图。
+
+> 建议：主要卖点、产品信息和风格诉求优先写在规划节点的 `卖点_文案_设计补充`。结构节点和批量提示词节点的修正输入只用于局部调整，不建议重复填写核心卖点。
 
 ### SynVow LLM Settings（第三方备用）
 1. 填写第三方 OpenAI-compatible 接口的 `base_url`、`apikey`、`model_name`
@@ -144,6 +163,63 @@
 | `subject_image` | IMAGE（可选） | 主体图 |
 
 **输出**：`optimized_prompt`、`reference_summary`
+
+### RH GPT-image2详情页规划（SynVowPromptLongScrollNarrativePlanner）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `产品图_1` | IMAGE | 主产品图，必填，用于锁定产品外观 |
+| `模型` | COMBO | RunningHub LLM 模型下拉框 |
+| `产品名称` | STRING | 产品名称 |
+| `产品品类` | STRING | 产品品类 |
+| `卖点_文案_设计补充` | STRING | 核心卖点、文案方向、设计参考或页面结构诉求 |
+| `切片数量` | INT | 详情页屏数，当前上限 10 |
+| `种子` | INT | 随机种子 |
+| `llm_config` | SYNVOW_LLM_CONFIG（可选） | 第三方接口配置，连接后覆盖 RunningHub 默认配置 |
+| `temperature` | FLOAT（可选） | LLM 发散程度 |
+| `产品图_2` ~ `产品图_4` | IMAGE（可选） | 更多产品参考图 |
+| `参考图_1` ~ `参考图_4` | IMAGE（可选） | 风格、版式、场景参考图 |
+
+**输出**：`叙事结构_JSON`、`长卷视觉母版说明`、`叙事结构_Markdown`、`生成状态`
+
+### RH GPT-image2详情页结构（SynVowPromptLongScrollPageStructurePlanner）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `叙事结构_JSON` | STRING | 来自规划节点 |
+| `长卷视觉母版说明` | STRING | 来自规划节点 |
+| `模型` | COMBO | RunningHub LLM 模型下拉框 |
+| `结构修正要求_可选` | STRING（可选） | 局部结构修正，不建议重复输入主要卖点 |
+| `llm_config` | SYNVOW_LLM_CONFIG（可选） | 第三方接口配置 |
+| `temperature` | FLOAT（可选） | LLM 发散程度 |
+| `种子` | INT（可选） | 随机种子 |
+
+**输出**：`页面结构蓝图_JSON`、`页面结构蓝图_Markdown`、`生成状态`
+
+### RH GPT-image2详情页批量提示词（SynVowPromptLongScrollPromptBatchBuilder）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `页面结构蓝图_JSON` | STRING | 来自结构节点 |
+| `长卷视觉母版说明` | STRING | 来自规划节点 |
+| `模型` | COMBO | RunningHub LLM 模型下拉框 |
+| `叙事结构_JSON` | STRING（可选） | 来自规划节点，用于补充上下文 |
+| `出图提示词修正_可选` | STRING（可选） | 局部生图提示词修正 |
+| `llm_config` | SYNVOW_LLM_CONFIG（可选） | 第三方接口配置 |
+| `temperature` | FLOAT（可选） | LLM 发散程度 |
+| `种子` | INT（可选） | 随机种子 |
+
+**输出**：`批量提示词_JSON`、`批量提示词_文本`、`提示词列表`（STRING[]）、`生成状态`
+
+### RH 详情页图像列表顺序拼接长图（SynVowPromptLongScrollImageListConcat）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `图像列表` | IMAGE | 多张详情页切片图像列表 |
+
+**输出**：`长图`、`拼接状态`
+
+拼接逻辑固定为：按第一张图宽度统一缩放，按列表顺序竖向拼接，不裁剪重叠区域。
 
 ## 📝 License
 
