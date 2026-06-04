@@ -1,0 +1,29 @@
+请根据以下全局母版和当前批次目录，展开指定范围内的详情页 sections。
+
+【全局母版 JSON】
+{master_json}
+
+【当前批次 outline】
+{outline_json}
+
+【当前批次范围】
+{start_id}-{end_id}
+
+【当前批次数量】
+{chunk_count}
+
+【必须输出的 slice_id】
+{chunk_ids}
+
+【硬性输出要求】
+- 只输出 {chunk_count} 个 sections。
+- slice_id 必须严格为：{chunk_ids}。
+- 不要输出范围外屏幕。
+- 不要输出 Markdown 或解释文字。
+- 每个 section 的 text_exact 必须是真实可见中文短文案，不得写规划标签。
+
+请返回合法 JSON：
+{
+  "workflow": "ecommerce_long_scroll_narrative_sections",
+  "sections": []
+}

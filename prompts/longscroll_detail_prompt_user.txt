@@ -1,0 +1,98 @@
+请根据以下页面结构蓝图，生成每一屏 9:21 切片的 image2 出图提示词。
+
+【页面结构蓝图 JSON】
+{page_structure_json}
+
+【旧叙事结构 JSON（仅在页面结构蓝图为空时兼容使用）】
+{narrative_json}
+
+【长卷视觉母版说明】
+{visual_master_spec}
+
+【本批切片数量】
+{target_slice_count}
+
+【产品硬约束】
+{product_constraints}
+
+【长卷衔接规则】
+{continuity_policy}
+
+【出图提示词要求】
+{prompt_requirements}
+
+【出图提示词修正要求（可选）】
+{extra_requirements}
+
+【执行规则】
+1. 如果页面结构蓝图 JSON 包含 items，必须以它为最高优先级。
+2. 必须严格输出 {target_slice_count} 个 items，slice_id 必须以【分批生成要求】和页面结构蓝图中的编号为准。不要少，不要多，不要把 slice_id 重新从 "01" 编号。页面结构蓝图里的每个 item 必须生成一个对应 prompt item，禁止把两个 slice_id 合并成一个 prompt。
+3. 每个 prompt 必须严格执行对应 item 的 module_type、module_label、screen_job 和 evidence_type；layout_archetype 只作为信息组织意图，不要机械复刻固定卡片版式。
+4. 每个 prompt 必须保留 primary_module 和 secondary_modules，不能简化成单张海报。
+4A. 每个 prompt 主体必须使用英文写画面指令；只有需要真实出现在画面里的中文标题、副标题、标签可以保留中文。不要把页面结构蓝图里的中文说明原文塞进最终 prompt。
+4B. JSON 中每个 item.prompt 字段必须满足：除 visible Chinese headline/subheadline/tags 引号内的中文以外，其余 prompt 内容必须使用英文。section_name、content_points 可以保留中文，但 prompt 字段不能包含中文规划说明。
+5. 每个 prompt 必须保留 text_exact 中的中文标题、副标题和标签，不要改写成英文。
+6. 只把页面结构蓝图翻译成 image2 可执行的高质量视觉提示词，不要重新规划页面内容。
+7. 当前阶段只优化每张 9:21 图片的内容、版式、风格、商业信息和视觉质量；不要用 prompt 强行解决上下接缝。
+8. 相邻屏的 prompt 不要复用同一套画面逻辑；screen_job 和 evidence_type 必须成为画面差异的核心。
+9. 每张 9:21 图默认承载 2-4 个内容点，必须来自 primary_module 和 secondary_modules；不要新增蓝图之外的信息，但也不要退化成一屏只讲一个卖点。
+10. 每屏最多 1 个主标题、1 个副标题、3 个短标签；参数/步骤/功能屏可以略多，场景/情绪/收口屏必须更轻、更有留白。每屏必须只有 1 个超强主标题，辅助信息必须视觉降级，不能和主标题抢层级。
+11. 如果 slice_id 是 "08" 且 module_type 是 detail，只写材质、结构、工艺、触感、关键部件等细节证据；禁止参数表、包装清单、认证墙、售后承诺。
+12. 如果 slice_id 是 "09" 且 module_type 是 parameter_trust，只写规格、认证、安全、售后、配置、包装清单等理性购买确认；禁止复述第 08 屏微距细节。
+13. 默认最终出图节点会把产品图接入 Image 1；每个 prompt 都要把 Image 1 写成 product identity reference。产品外观由 Image 1 判断，不要在 prompt 里长篇重新描述产品结构。
+14. 描述产品时使用轻量表达：the product from Image 1 / the same product / product close-up based on Image 1。不要用文字强行规定瓶身比例、按钮位置、标签细节、部件形态或参考图没有的复杂角度。
+15. 内容权重决定模块数量：高权重屏可以有 1 个强主模块，但仍要搭配证据/场景/利益补充；中低权重屏必须写出 2-4 个内容点的主次关系，不要所有屏都是单个大视觉。
+15A. slice_id 是 "03" 时必须写成高密度屏：1 个强主模块 + 2-3 个辅助模块，形成 3-4 个清晰内容点；允许 image2 自行选择高级电商构图，不要固定成上图下卡片。
+15B. 如果蓝图包含 screen_fill_strategy、hierarchy_strategy、composition_shift，必须转译进 prompt：功能/细节/步骤/参数页要组合主卖点、证据细节、场景利益或参数信任点，建立 1 个强主标题 + 降级辅助信息，并避免连续使用相同版式。
+16. 如果 module_type 是 steps，prompt 必须表达 2-3 个清晰短步骤；允许连续动作、局部过程、纵向动线或自然分区，禁止单个 3:4 画面、单个巨大微距图、长句说明。
+17. 如果 module_type 是 parameter_trust，prompt 必须采用竖向信息层级：标题/信任短句、参数或认证信息、产品或材质背景融合；禁止左右对半、左文右图、右文左图。
+18. 相邻屏不要复用同一种视觉组织方式；避免连续出现“上方主图 + 下方卡片”“主图 + 两个小卡片”“三张等宽卡片”“底部参数条”。让 image2 在全幅场景、局部微距、斜向构图、沉浸式背景、融入式标签、留白标题、竖向动线或轻量浮层中选择适合本屏的高级电商构图。
+18A. 连续 function/detail 屏不能都写成“产品居中大图 + 周围图标/卡片”；至少一屏必须切换为人物使用、局部微距、结构剖面、斜向动线、全幅场景融合或纵向序列。
+18B. 人物/场景屏必须写清使用结果、生活方式或情绪利益，不要只写拿着产品展示；如需表达需求，只能轻量暗示，禁止黑白痛点对比、灰暗负面场景和廉价前后对照。
+18C. slice_id 为 "02"、"03"、"04" 时必须写成三种不同镜头语言：02 是首屏卖点延续/生活方式承接/期望结果场景；03 是机制、能量流、结构剖面或局部微距证据；04 是第二功能结果、模式序列、人物使用结果或场景融合。禁止 02-04 都写白色信息卡片、产品居中大图、底部说明卡、重复图标行或同样光效；第 02 屏禁止黑白痛点对比、旧方案对比、灰暗问题页、搜索页或总结页。
+18D. slice_id 为 "02" 时禁止写成产品卡片说明页，产品不能被放进白卡里讲功能；slice_id 为 "03" 和 "04" 不能复用同角度产品特写、同尺寸产品主体、同样标签位置。
+
+【每个 prompt 推荐写法】
+Canvas and aspect ratio: Create a single 9:21 vertical image.
+Reference image usage: Image 1 is the product identity reference. Infer the exact product appearance from Image 1 and keep the same product identity; do not redesign, invent, or over-describe the product from text. If a 1:3 master reference image is also provided, use it only as a low-strength visual style anchor for palette, lighting, material atmosphere and product mood. Do not copy its layout, do not crop it, and do not reduce the current 9:21 page structure.
+Human reference usage: If the reference image or current module suggests a person, convert it into a generic model, partial human crop, back view, shoulder/neck usage action, hand operation detail, or lifestyle scenario suitable for this product. Do not copy the reference person's face, identity, clothing details, brand, original product, or exact pose.
+Overall visual system: Describe the fixed visual_style_dna in English: palette, lighting, space, material atmosphere and typography style.
+Current viewport: State only the slice number and the customer-facing commercial task in English. Do not paste section_name, module_label, layout_archetype, or any Chinese blueprint label.
+Module role: State only the module_type in English and explain the screen role as a visual task. Do not paste module_label or internal Chinese labels.
+Screen job and evidence: Translate screen_job and evidence_type into an English visual strategy. Do not paste the original Chinese planning text.
+Layout intent: Translate the layout intention into plain English composition guidance. Do not paste the blueprint layout_archetype text or any internal label.
+Flexible page composition: Translate primary/secondary hierarchy, information density, screen_fill_strategy, hierarchy_strategy and composition_shift into concise English composition instructions. Avoid repeating previous card, matrix or bottom-strip structures.
+Primary module: Describe the primary_module in English. If product appears, only say the product from Image 1 / the same product / product close-up based on Image 1; do not reinvent product appearance.
+Secondary modules: Describe secondary_modules in English and keep them visually smaller, lighter and shorter than the primary module; do not create equal-weight card collage.
+Chinese typography: In English, describe typography rules, but keep only the visible Chinese copy in Chinese. Use this exact format: visible Chinese headline: "..." ; visible Chinese subheadline: "..." ; visible Chinese tags: "...". Do not paste Chinese planning notes outside these visible text fields.
+Edge safety: Describe top_edge_anchor and bottom_edge_anchor in English; keep important text and subjects away from edges.
+Composition notes: Describe composition, negative space, lighting, camera distance, eye flow and commercial polish in English.
+Important constraints: Write constraints in English except exact visible Chinese copy. Image 1 identity has priority; Chinese visible text only; no product redesign; no drift; no white PPT-like layout; no garbled text.
+Typography consistency: Write in English. Do not change font style across screens; no English visible titles, no English parameter tables, no script fonts, no Songti-style serif font, no handwriting font, no heavy text shadow, no negative tracking, no mixed font families.
+Steps layout rule: If module_type is steps, describe 2-3 clear short steps in English; each visible step label must be short Chinese only.
+Parameter layout rule: If module_type is parameter_trust, use a vertical information hierarchy, not a horizontal left-right web layout. Parameter labels should be short Chinese text naturally integrated with product/material background.
+FAQ/closing rule: If module_type is faq_close, keep the screen simple, quiet and emotional; visible Chinese copy should focus on final benefit and lifestyle feeling, with at most 1-2 short FAQ/trust lines.
+Internal label leakage rule: Never render any blueprint field value, module label, section name, page type, workflow/debug term, UI/search/navigation word, or structural placeholder as visible text. These are internal planning labels, not customer-facing copy.
+Module label rewrite rule: Do not use one-word module labels as visible Chinese copy. Rewrite them into customer-facing benefit copy, such as visible Chinese headline: "看得见的用心细节" or visible Chinese headline: "买得放心，用得安心".
+Empty closing copy rule: If the final closing screen has no meaningful customer-facing copy, use a clean product still-life, packaging, lifestyle, gift or brand mood closing visual with no visible text. Do not invent a fake question-answer title or any internal closing label.
+
+请返回合法 JSON，结构如下：
+{
+  "workflow": "ecommerce_long_scroll_detail_page",
+  "canvas_ratio": "9:21",
+  "items": [
+    {
+      "slice_id": "01",
+      "section_name": "...",
+      "module_type": "...",
+      "module_label": "...",
+      "screen_job": "...",
+      "evidence_type": "...",
+      "layout_archetype": "...",
+      "content_points": [{"role":"primary","content":"..."},{"role":"secondary","content":"..."}],
+      "prompt": "...",
+      "transition_in": "",
+      "transition_out": ""
+    }
+  ]
+}

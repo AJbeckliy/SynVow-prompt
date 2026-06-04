@@ -1,0 +1,30 @@
+请为以下产品生成电商长卷详情页的全局视觉母版和精简叙事目录。
+
+【产品名称】
+{product_name}
+
+【产品品类】
+{category}
+
+【卖点 / 文案 / 设计补充】
+{creative_guidance}
+
+【切片数量】
+{slice_count}
+
+【本阶段只输出】
+1. visual_master_spec：整套详情页的视觉总设计稿。
+2. master_reference_prompt：与视觉母版一致的整体参考描述。
+3. visual_style_dna：全局风格锁，必须包含 typography_lock。
+4. outline：严格 {slice_count} 个精简屏幕目录。
+
+【outline 硬性要求】
+- outline 数组长度必须严格等于 {slice_count}。
+- slice_id 从 "01" 开始连续编号到目标编号。
+- 每项只写短内容：section_name、narrative_role、key_message。
+- 不要在 outline 里写 main_visual、composition、text_exact。
+- 不要因为合并模块而减少 outline 数量。
+- visual_master_spec 和 visual_style_dna 只负责定方向，不要写每屏细节。
+- 整体 JSON 要尽量短，避免超过输出长度限制。
+
+请返回合法 JSON，字段结构必须符合系统提示词要求。
