@@ -1,6 +1,6 @@
 ﻿# SynVow-Prompt
 
-🛍️ **SynVow 提示词工具集（v1.4）** - ComfyUI 自定义节点：提供电商详情页多屏提示词生成、香蕉电商详情页 V3（带参考图）、文生图提示词优化、图生图参考提示词优化等功能。默认支持 RunningHub LLM 封装，也可通过 `SynVow LLM Settings` 接入任意 OpenAI-compatible 接口。
+🛍️ **SynVow 提示词工具集（v1.5）** - ComfyUI 自定义节点：提供电商详情页多屏提示词生成、香蕉电商详情页 V3、RH GPT-image2 长卷详情页、透明素材生成链路、文生图/图生图提示词优化等功能。默认支持 RunningHub LLM 与 GPT-Image-2 标准模型接口，也可通过 `SynVow LLM Settings` 接入任意 OpenAI-compatible 接口。
 
 ## ✨ Features
 
