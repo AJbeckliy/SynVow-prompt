@@ -1,0 +1,199 @@
+{
+  "scene_presets": [
+    "通用透明素材",
+    "参考图分层拆图",
+    "电商素材包",
+    "UI图标套装",
+    "人物/IP贴纸",
+    "周边贴纸素材",
+    "游戏道具素材",
+    "节日活动素材"
+  ],
+  "planner_modes": [
+    "自动规划(LLM)",
+    "规则预设(不调用LLM)"
+  ],
+  "asset_counts": [
+    "1",
+    "2",
+    "4",
+    "6",
+    "8",
+    "12"
+  ],
+  "style_strengths": [
+    "保守",
+    "标准",
+    "丰富",
+    "高表现"
+  ],
+  "complexities": [
+    "简洁",
+    "适中",
+    "丰富"
+  ],
+  "postprocess_modes": [
+    "裁边留白",
+    "仅检测Alpha"
+  ],
+  "defaults": {
+    "scene_preset": "电商素材包",
+    "planner_mode": "自动规划(LLM)",
+    "asset_count": "6",
+    "style_strength": "标准",
+    "complexity": "适中",
+    "postprocess_mode": "裁边留白"
+  },
+  "scene_hints": {
+    "通用透明素材": "Generate one user requested object as a clean transparent PNG asset.",
+    "参考图分层拆图": "Split the provided reference poster or product visual into practical design layers: text/logo, main subject/person/product, background, and decorative foreground elements. Do not invent new props or unrelated assets; only recreate layers that are visible in the reference image.",
+    "电商素材包": "Use a coherent ecommerce overlay component style across separate outputs: product decoration, selling-point tags, feature icons, arrows, labels, supporting props, particles, water drops, petals, food fragments, ribbons, geometry and commercial visual accents. Each output should contain one component only.",
+    "UI图标套装": "Use a coherent UI icon-set style for apps, websites, SaaS, mini programs or dashboards. Keep consistent perspective, material, stroke/volume, lighting and size across separate outputs. Upload/download icons must keep clear arrow direction and must not become icon sheets.",
+    "人物/IP贴纸": "Use a coherent simple original cartoon mascot/emote sticker style across separate outputs. Treat every output as the same sticker pack and the same original character: keep identical chibi proportions, face shape, eye rendering style, hair design, line thickness, sticker outline, material, lighting, camera angle and level of detail. Prefer non-real-person mascot heads, busts, rounded characters or simplified emotes. Preserve only the general character identity when a reference image is provided; each output should contain one pose, expression, gesture or sticker action only.",
+    "周边贴纸素材": "Use a coherent physical merchandise sticker artwork style across separate outputs for fridge magnets, journaling stickers, acrylic standees, packaging stickers and cultural creative products. Each output should contain one sticker artwork only.",
+    "游戏道具素材": "Use a coherent game-ready transparent asset style across separate outputs: item icons, skill icons, inventory objects, cards, badges, props, weapons, potions, coins, gems, magic effects and avatar decorations. Each output should contain one game asset only.",
+    "节日活动素材": "Use a coherent holiday and campaign transparent element style: festival decorations, promotion tags, celebration props, seasonal icons and event atmosphere assets. Generate each element as a separate output."
+  },
+  "fallback_items": {
+    "参考图分层拆图": [
+      "文字/Logo层",
+      "主体/人物/产品层",
+      "背景层",
+      "装饰元素层",
+      "光影氛围层",
+      "其他可复用元素层"
+    ],
+    "电商素材包": [
+      "产品主视觉装饰光环",
+      "卖点空白标签",
+      "功能小图标",
+      "细节指示箭头",
+      "漂浮粒子装饰",
+      "场景陪衬小道具",
+      "促销爆炸贴",
+      "材质/成分辅助元素",
+      "丝带/几何装饰",
+      "水滴/花瓣/食材碎片",
+      "品牌感留白标题底板",
+      "广告氛围高光元素"
+    ],
+    "UI图标套装": [
+      "首页图标",
+      "搜索图标",
+      "上传图标",
+      "下载图标",
+      "编辑图标",
+      "收藏图标",
+      "消息图标",
+      "设置图标",
+      "订单图标",
+      "支付图标",
+      "AI生成图标",
+      "数据分析图标"
+    ],
+    "人物/IP贴纸": [
+      "开心挥手贴纸",
+      "惊讶表情贴纸",
+      "点赞动作贴纸",
+      "疑问表情贴纸",
+      "加油鼓励贴纸",
+      "手持空白牌贴纸",
+      "指向箭头动作贴纸",
+      "比心动作贴纸",
+      "胜利手势贴纸",
+      "思考表情贴纸",
+      "庆祝动作贴纸",
+      "无语表情贴纸"
+    ],
+    "周边贴纸素材": [
+      "主形象贴纸",
+      "圆形徽章贴纸",
+      "冰箱贴主体图案",
+      "手账小装饰",
+      "包装封口贴",
+      "亚克力立牌图案",
+      "城市/地标贴纸",
+      "甜品/咖啡贴纸",
+      "可爱小物贴纸",
+      "节日小贴纸",
+      "边框装饰贴纸",
+      "空白文字贴纸底板"
+    ],
+    "游戏道具素材": [
+      "金币道具图标",
+      "宝箱道具图标",
+      "生命药水图标",
+      "魔法水晶图标",
+      "武器道具图标",
+      "护盾徽章图标",
+      "火焰技能图标",
+      "冰霜技能图标",
+      "闪电技能图标",
+      "稀有卡牌边框",
+      "头像挂件",
+      "任务奖励图标"
+    ],
+    "节日活动素材": [
+      "节日主装饰",
+      "活动促销标签",
+      "礼盒元素",
+      "彩带飘带",
+      "节日徽章",
+      "倒计时标签",
+      "优惠券底板",
+      "氛围粒子",
+      "节日小道具",
+      "空白标题牌",
+      "角标贴纸",
+      "庆祝烟花元素"
+    ]
+  },
+  "transparent_constraints": "Transparent PNG asset, true transparent background, real alpha channel, isolated subject, no scene background, no wall, no floor, no surface, no solid color backdrop, no checkerboard background, no transparency grid, no fake transparent pattern, no transparency preview canvas, clean cutout edge, centered composition, full object visible, safe margin, usable as a design overlay element. Do not draw or simulate transparency; leave the background empty through the alpha channel.",
+  "planner_system_prompt": "You are a ComfyUI transparent visual asset pack planner. Plan assets that will be generated one-by-one as separate transparent PNG overlay elements. Return strict JSON only, no markdown. Schema: {\"style_prompt\":\"English global visual style lock applied verbatim to every generated asset\",\"items\":[{\"name\":\"short Chinese name\",\"description\":\"usage description\",\"prompt\":\"English image generation prompt for exactly one transparent PNG asset\"}]}. The style_prompt must be one reusable global style paragraph that fixes the whole pack's art direction: character identity when relevant, proportions, perspective/camera angle, material, surface finish, stroke/outline, lighting, shadow softness, color palette, detail density, edge treatment and sticker/icon/asset presentation. Every item prompt must describe exactly one isolated asset for one image output only and must not contradict style_prompt. Never ask for an asset sheet, icon grid, sticker sheet, item grid, nine-grid, contact sheet, collage, multiple objects, full poster, full ecommerce main image, full UI screen, or full scene. If the scene is reference layer split, use only layout layers visible in the reference image: text/logo layer, main subject/person/product layer, background layer, decorative elements layer; do not invent new props, mascots, food, icons, or unrelated assets. For UI upload/download icons, keep one clear arrow direction only. For character/IP stickers, plan one consistent original non-real-person cartoon mascot/emote pack; keep the same character identity, chibi proportions, face shape, eye style, hair design, material, lighting, outline and camera angle across items, and only vary expression, gesture or a small prop; avoid realistic human likeness, celebrity likeness and complex full-body anatomy unless explicitly required by the user. Avoid visible text unless the asset is explicitly a text/logo layer, blank label or blank badge; for labels, generate blank text areas only.",
+  "planner_requirements": [
+    "Plan exactly asset_count items.",
+    "Each item must be reusable as a transparent PNG component.",
+    "The whole pack must share one consistent visual style.",
+    "Return one style_prompt that will be copied into every final generation prompt as the global visual style lock.",
+    "Prompts must request isolated objects with clean alpha-ready edges.",
+    "Each generated image should contain one object only.",
+    "Do not plan full posters, full ecommerce main images, full UI screens, icon sheets, sticker sheets, item grids, contact sheets, collages, or multi-object layouts."
+  ],
+  "style_strength_map": {
+    "保守": "practical, clean, restrained, easy to reuse",
+    "标准": "balanced commercial quality, reusable and polished",
+    "丰富": "richer detail, stronger decoration, still clean and reusable",
+    "高表现": "high-impact, eye-catching, premium visual expression"
+  },
+  "complexity_map": {
+    "简洁": "simple silhouette, minimal detail, high readability",
+    "适中": "moderate detail, clear subject, commercial polish",
+    "丰富": "rich detail, layered material, strong visual presence"
+  },
+  "scene_generation_rules": {
+    "通用透明素材": "One transparent reusable asset only. Exactly one object in this output, no asset sheet, no grid, no collage, no multiple objects.",
+    "参考图分层拆图": "Reference layer split mode. Output exactly the requested layer from the provided reference image. Do not invent objects that are not visible in the reference. Text/logo layer may contain visible text; background layer may be a full-frame background plate; foreground layers should use real alpha outside the layer content.",
+    "电商素材包": "One commercial ecommerce overlay component only. No full product poster, no complete main image layout, no asset sheet, no collage, no extra props, no visible marketing copy unless it is a blank label shape.",
+    "UI图标套装": "Single UI icon asset only. Exactly one symbol per output, not an icon sheet, not an icon grid, not a nine-grid, not an icon group, not multiple mini icons, consistent icon-set style, centered, clear silhouette, no text, no app screen, no full interface. Upload must use an upward arrow; download must use a downward arrow into tray/inbox.",
+    "人物/IP贴纸": "One simple original cartoon mascot/emote sticker asset only with clean contour and one expressive pose. It must belong to the same sticker pack and same original character as the other outputs: identical chibi proportions, face shape, eye rendering, hair design, material, lighting, outline/border, camera angle and detail level; only expression, gesture or a small prop may change. Prefer head, bust, rounded character or simplified emote composition. No realistic human likeness, no celebrity likeness, no complex full-body anatomy, no detailed hands, no multiple characters, no sticker sheet, no contact sheet, no multiple poses in one image, no background scene, no text unless user requested a blank sign.",
+    "周边贴纸素材": "One merchandise sticker artwork only. Printable clean edge, appealing contour, no sticker sheet, no contact sheet, no product mockup background, suitable for fridge magnets, journaling stickers or acrylic products.",
+    "游戏道具素材": "One game asset icon or prop only, readable at small size, strong silhouette. No inventory grid, no item sheet, no item collection, no UI panel unless requested, no full game scene.",
+    "节日活动素材": "One holiday or campaign decoration asset only, festive but reusable. No element sheet, no contact sheet, no complete poster, no layout, blank labels if label shapes are needed."
+  },
+  "generation_prompt_template": [
+    "Single transparent asset request: {item_prompt}",
+    "Asset name: {item_name}",
+    "{style_lock}",
+    "{scene_rule}",
+    "{transparent_constraints}",
+    "Output only the isolated subject on real alpha transparency. Do not visualize transparency as a checkerboard, gray-white grid, preview canvas, white square, background, frame, canvas texture, floor shadow, watermark, signature, extra objects, asset sheet, icon grid, nine-grid, sticker sheet, item grid, contact sheet, collage, or multi-object layout."
+  ],
+  "layout_split_generation_prompt_template": [
+    "Reference image layer split request: {item_prompt}",
+    "Layer name: {item_name}",
+    "{style_lock}",
+    "{scene_rule}",
+    "{transparent_constraints}",
+    "Output only this one design layer. Do not invent new visual assets. Do not output a contact sheet, asset pack, grid, collage, full poster, or unrelated object. For text/logo layer, visible text and logo shapes are allowed. For background layer, a full-frame background plate is allowed. For other layers, keep real alpha outside the extracted/recreated content. Never render a checkerboard, gray-white grid, transparency preview canvas, or fake transparency pattern."
+  ]
+}

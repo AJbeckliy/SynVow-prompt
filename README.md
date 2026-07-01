@@ -9,6 +9,7 @@
 - **文生图提示词控制器**：双 LLM Schema 流程，节点内置 RunningHub `model` 下拉框，支持版式选择、文字策略（不加/保留/优化/自动生成）、优化强度等精细控制。
 - **图生图提示词控制器**：基于参考图 + 可选主体图，节点内置 RunningHub `model` 下拉框，支持风格/构图/色彩/版式等多维度参考模式。
 - **RH GPT-image2 长卷详情页工作流**：新增 4 个 RunningHub 版详情页节点，支持规划 → 页面结构 → 批量生图提示词 → 长图拼接，适合 9:21 多屏电商详情页。
+- **透明素材生成链路（RH）**：新增透明素材提示词生成器、`RH GPT-Image-2 Alpha (T_batch)` 和透明 PNG URL 保存节点，支持文生透明素材、参考图拆层、UI 图标套装、游戏道具、节日活动素材等场景。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
 - **RunningHub + 第三方双通道**：默认使用 RunningHub LLM 请求方式；需要第三方接口时，连接 `SynVow LLM Settings` 作为备用配置。
@@ -82,6 +83,21 @@
    - 自动按第一张图宽度统一缩放，并按列表顺序竖向拼接成长图。
 
 > 建议：主要卖点、产品信息和风格诉求优先写在规划节点的 `卖点_文案_设计补充`。结构节点和批量提示词节点的修正输入只用于局部调整，不建议重复填写核心卖点。
+
+### 透明素材生成链路（RH）
+节点位于 **SynVow-prompt / 透明素材** 分类下，建议按下面顺序连接：
+
+1. `SynVow 透明素材提示词生成器 (RH)`
+   - 选择 `scene_preset`，填写 `custom_prompt`，输出 `prompts_list`。
+   - `自动规划(LLM)` 会调用 RunningHub LLM；`规则预设(不调用LLM)` 不会调用 LLM。
+   - 如需参考图拆层，将参考图接到 `product_or_reference_image`。
+2. `RH GPT-Image-2 Alpha (T_batch)`
+   - 接入 `prompts_list`，无图像输入时走文生图；有 `image1`~`image8` 时先上传参考图，再走 RunningHub image-to-image。
+   - 只输出 `image_urls` 和 `status`，不输出 `IMAGE/MASK`，避免 Alpha 通道在 tensor 转换中丢失。
+   - 透明素材建议默认使用 `gpt-image-2-低价通道`。实测 `gpt-image-2-官方` 可提交成功，但上游可能返回不带 alpha 的不透明 PNG，保存节点会提示“未检测到透明像素”。
+3. `SynVow 透明PNG保存预览 (RH)`
+   - 接入 `image_urls`，按 URL 下载原始图片并保存 RGBA PNG。
+   - `save_path` 支持 ComfyUI output 相对路径，也支持 Windows 绝对路径。
 
 ### SynVow LLM Settings（第三方备用）
 1. 填写第三方 OpenAI-compatible 接口的 `base_url`、`apikey`、`model_name`
