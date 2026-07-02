@@ -265,8 +265,6 @@ class SynVowTransparentPngSavePreview:
         return {
             "required": {
                 "image_urls": ("STRING", {"forceInput": True}),
-                "save_path": ("STRING", {"default": "SynVowTransparent"}),
-                "filename_prefix": ("STRING", {"default": "transparent"}),
             },
             "hidden": {
                 "prompt": "PROMPT",
