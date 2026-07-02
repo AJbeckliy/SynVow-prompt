@@ -184,6 +184,76 @@ def _repair_fake_checkerboard_alpha(image: Image.Image) -> tuple:
     return repaired, f"checkerboard_to_alpha:{bg_ratio:.0%}"
 
 
+def _repair_fake_light_background_alpha(image: Image.Image) -> tuple:
+    rgba = image.convert("RGBA")
+    if _has_real_alpha(rgba):
+        return rgba, ""
+
+    array = np.asarray(rgba).copy()
+    rgb = array[:, :, :3].astype(np.int16)
+    channel_max = rgb.max(axis=2)
+    channel_min = rgb.min(axis=2)
+    gray = rgb.mean(axis=2)
+
+    # Model sometimes returns the intended transparent PNG on a painted white or
+    # off-white canvas. Only remove large neutral regions connected to the border.
+    light_neutral = (channel_max - channel_min <= 28) & (gray >= 232)
+    connected = _border_connected_mask(light_neutral)
+    bg_ratio = float(connected.mean())
+    if bg_ratio < 0.08:
+        return rgba, ""
+
+    border = np.concatenate([
+        light_neutral[0, :],
+        light_neutral[-1, :],
+        light_neutral[:, 0],
+        light_neutral[:, -1],
+    ])
+    border_ratio = float(border.mean())
+    if border_ratio < 0.65:
+        return rgba, ""
+
+    array[connected, :3] = 0
+    array[connected, 3] = 0
+    repaired = Image.fromarray(array, "RGBA")
+    return repaired, f"light_bg_to_alpha:{bg_ratio:.0%}"
+
+
+def _repair_fake_dark_background_alpha(image: Image.Image) -> tuple:
+    rgba = image.convert("RGBA")
+    if _has_real_alpha(rgba):
+        return rgba, ""
+
+    array = np.asarray(rgba).copy()
+    rgb = array[:, :, :3].astype(np.int16)
+    channel_max = rgb.max(axis=2)
+    channel_min = rgb.min(axis=2)
+    gray = rgb.mean(axis=2)
+
+    # Remove only large dark neutral regions connected to the border. This keeps
+    # internal black outlines/details unless they are part of the border canvas.
+    dark_neutral = (channel_max - channel_min <= 32) & (gray <= 40)
+    connected = _border_connected_mask(dark_neutral)
+    bg_ratio = float(connected.mean())
+    if bg_ratio < 0.08:
+        return rgba, ""
+
+    border = np.concatenate([
+        dark_neutral[0, :],
+        dark_neutral[-1, :],
+        dark_neutral[:, 0],
+        dark_neutral[:, -1],
+    ])
+    border_ratio = float(border.mean())
+    if border_ratio < 0.65:
+        return rgba, ""
+
+    array[connected, :3] = 0
+    array[connected, 3] = 0
+    repaired = Image.fromarray(array, "RGBA")
+    return repaired, f"dark_bg_to_alpha:{bg_ratio:.0%}"
+
+
 class SynVowTransparentPngSavePreview:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -280,6 +350,8 @@ class SynVowTransparentPngSavePreview:
         rgba_paths = []
         alpha_count = 0
         checkerboard_repaired_count = 0
+        light_bg_repaired_count = 0
+        dark_bg_repaired_count = 0
         url_saved_count = 0
 
         for batch_number in range(len(url_rgba_list)):
@@ -293,6 +365,16 @@ class SynVowTransparentPngSavePreview:
                 if repair_info:
                     checkerboard_repaired_count += 1
                     print(f"[SynVowTransparentSave] 棋盘格假透明已转 Alpha ({batch_number + 1}): {repair_info}")
+            if not _has_real_alpha(rgba):
+                rgba, repair_info = _repair_fake_light_background_alpha(rgba)
+                if repair_info:
+                    light_bg_repaired_count += 1
+                    print(f"[SynVowTransparentSave] light background fake transparency converted to alpha ({batch_number + 1}): {repair_info}")
+            if not _has_real_alpha(rgba):
+                rgba, repair_info = _repair_fake_dark_background_alpha(rgba)
+                if repair_info:
+                    dark_bg_repaired_count += 1
+                    print(f"[SynVowTransparentSave] dark background fake transparency converted to alpha ({batch_number + 1}): {repair_info}")
             has_alpha = _has_real_alpha(rgba)
             url_saved_count += 1
             if has_alpha:
@@ -326,6 +408,8 @@ class SynVowTransparentPngSavePreview:
         status = (
             f"已保存 {len(rgba_paths)} 张 RGBA PNG；检测到透明像素 {alpha_count}/{len(rgba_paths)}；"
             f"棋盘格假透明修复 {checkerboard_repaired_count}/{len(rgba_paths)}；"
+            f"浅色背景假透明修复 {light_bg_repaired_count}/{len(rgba_paths)}；"
+            f"深色背景假透明修复 {dark_bg_repaired_count}/{len(rgba_paths)}；"
             f"URL原图保存 {url_saved_count}/{len(rgba_paths)}；保存目录 {display_folder}。"
         )
         if is_absolute_save:

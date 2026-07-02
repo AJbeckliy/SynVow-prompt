@@ -374,7 +374,9 @@ def _submit_generation(api_key: str, endpoint_url: str, payload: Dict[str, Any])
 
     task_id = _extract_task_id(data)
     if not task_id:
-        raise RuntimeError(f"RunningHub 提交成功但未解析到 taskId: {str(data)[:500]}")
+        failure_text = _find_failure_text(data)
+        detail = f"; detail={failure_text}" if failure_text else ""
+        raise RuntimeError(f"RunningHub 提交未返回 taskId{detail}: {str(data)[:500]}")
     print(f"[RH GPT-Image-2 Alpha] taskId=...{task_id[-8:]}")
     return task_id
 
@@ -424,6 +426,41 @@ def _results_from_query(data: Dict[str, Any]) -> Any:
     return nested
 
 
+def _find_failure_text(value: Any, depth: int = 0) -> str:
+    if depth > 5 or value is None:
+        return ""
+    if isinstance(value, str):
+        text = value.strip()
+        if text and any(token in text.lower() for token in ("error", "fail", "失败", "异常", "拒绝", "blocked")):
+            return text[:1200]
+        return ""
+    if isinstance(value, dict):
+        priority_keys = (
+            "error",
+            "message",
+            "msg",
+            "reason",
+            "failReason",
+            "failureReason",
+            "statusMessage",
+            "errmsg",
+        )
+        for key in priority_keys:
+            text = _find_failure_text(value.get(key), depth + 1)
+            if text:
+                return text
+        for nested in value.values():
+            text = _find_failure_text(nested, depth + 1)
+            if text:
+                return text
+    if isinstance(value, list):
+        for item in value:
+            text = _find_failure_text(item, depth + 1)
+            if text:
+                return text
+    return ""
+
+
 def _poll_task(api_key: str, task_id: str) -> List[str]:
     deadline = time.time() + POLL_TIMEOUT_SECONDS
     consecutive_errors = 0
@@ -453,7 +490,9 @@ def _poll_task(api_key: str, task_id: str) -> List[str]:
                 return urls
             raise RuntimeError(f"任务完成但未解析到图片 URL: {str(data)[:500]}")
         if status in {"FAILED", "FAILURE", "ERROR", "CANCELED", "CANCELLED"}:
-            raise RuntimeError(f"RunningHub 任务失败 status={status}: {str(data)[:800]}")
+            failure_text = _find_failure_text(data)
+            detail = f"; detail={failure_text}" if failure_text else ""
+            raise RuntimeError(f"RunningHub 任务失败 status={status}{detail}: {str(data)[:800]}")
 
         _sleep_interruptible(POLL_INTERVAL_SECONDS)
 
@@ -550,6 +589,10 @@ class RunningHubGptImage2Alpha_TBatch:
         submitted = []
         for index, prompt in enumerate(prompts, start=1):
             payload = _build_payload(prompt, aspect_ratio, resolution, quality, reference_urls, endpoint_info, seed_value)
+            print(
+                f"[RH GPT-Image-2 Alpha] [{index}/{len(prompts)}] "
+                f"prompt_chars={len(str(prompt or ''))} mode={'img2img' if reference_urls else 'text2img'}"
+            )
             try:
                 task_id = _submit_with_retry(api_key, endpoint_url, payload)
                 submitted.append((index, task_id))
