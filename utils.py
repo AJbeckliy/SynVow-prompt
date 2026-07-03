@@ -7,27 +7,32 @@ from pathlib import Path
 import requests
 
 RUNNINGHUB_LLM_CHAT_URL = "https://llm.runninghub.cn/v1/chat/completions"
-RUNNINGHUB_LLM_MODELS_URL = "https://llm.runninghub.ai/v1/models"
+RUNNINGHUB_LLM_MODELS_URLS = (
+    "https://llm.runninghub.ai/v1/models",
+    "https://llm.runninghub.cn/v1/models",
+)
+RUNNINGHUB_LLM_MODELS_URL = RUNNINGHUB_LLM_MODELS_URLS[0]
 RUNNINGHUB_DEFAULT_MODELS = [
-    "google/gemini-3.1-pro-preview",
-    "gemini-3.1-pro-preview",
     "google/gemini-3.1-flash-lite-preview",
-    "gemini-3.1-flash-lite-preview",
+    "google/gemini-3.5-flash",
+    "google/gemini-3.1-pro-preview",
+    "openai/gpt-5.5",
+    "glm-5.2",
 ]
 MODEL_CACHE_TTL_SECONDS = 3600
 RUNNINGHUB_MODEL_CACHE = {"expires_at": 0.0, "models": None}
 RUNNINGHUB_FALLBACK_MODELS = [
-    "doubao-seed-1-6-251015",
-    "doubao-seed-2-0-pro-260215",
-    "doubao-seed-2-0-lite-260215",
-    "DeepSeek-V3",
-    "Qwen3-235B-A22B-Instruct-2507",
-    "gemini-2.5-flash",
-    "gpt-5",
-    "gemini-3-pro-preview",
-    "gemini-3-flash-preview",
-    "gemini-3.1-pro-preview",
-    "GLM-4.6v",
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemini-3.5-flash",
+    "google/gemini-3.1-pro-preview",
+    "openai/gpt-5.5",
+    "openai/gpt-5.5-pro",
+    "openai/gpt-5.4-pro",
+    "glm-5.2",
+    "glm-5.1",
+    "glm-5-turbo",
+    "qwen/qwen3.7-max",
+    "deepseek/deepseek-v4-pro",
 ]
 
 
@@ -63,21 +68,26 @@ def fetch_runninghub_models(force=False):
     if not force and cached and now < float(RUNNINGHUB_MODEL_CACHE.get("expires_at", 0)):
         return list(cached)
 
-    try:
-        response = requests.get(RUNNINGHUB_LLM_MODELS_URL, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        models = [
-            str(item.get("id")).strip()
-            for item in data.get("data", [])
-            if isinstance(item, dict) and str(item.get("id", "")).strip()
-        ]
-        if models:
-            RUNNINGHUB_MODEL_CACHE["models"] = models
-            RUNNINGHUB_MODEL_CACHE["expires_at"] = now + MODEL_CACHE_TTL_SECONDS
-            return models
-    except Exception as exc:
-        print(f"[SynVow LLM] Failed to fetch RunningHub models, using fallback: {type(exc).__name__}")
+    last_error = None
+    for models_url in RUNNINGHUB_LLM_MODELS_URLS:
+        try:
+            response = requests.get(models_url, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            models = [
+                str(item.get("id")).strip()
+                for item in data.get("data", [])
+                if isinstance(item, dict) and str(item.get("id", "")).strip()
+            ]
+            if models:
+                RUNNINGHUB_MODEL_CACHE["models"] = models
+                RUNNINGHUB_MODEL_CACHE["expires_at"] = now + MODEL_CACHE_TTL_SECONDS
+                return models
+        except Exception as exc:
+            last_error = exc
+
+    if last_error is not None:
+        print(f"[SynVow LLM] Failed to fetch RunningHub models, using fallback: {type(last_error).__name__}")
 
     return list(RUNNINGHUB_FALLBACK_MODELS)
 
@@ -86,7 +96,7 @@ def default_runninghub_model(models):
     for model in RUNNINGHUB_DEFAULT_MODELS:
         if model in models:
             return model
-    return models[0]
+    return models[0] if models else RUNNINGHUB_FALLBACK_MODELS[0]
 
 
 def _read_env_file(env_path):
