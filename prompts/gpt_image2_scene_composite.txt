@@ -1,0 +1,7 @@
+Image 1 is the product to preserve. Image 2 is the target scene.
+
+Extract the product from Image 1 and integrate it naturally into Image 2 as a premium photorealistic commercial composite. Preserve the product's exact geometry, proportions, packaging design, brand marks, label text, colors, and material identity.
+
+Match the target scene's scale, perspective, camera angle, lighting direction, color temperature, exposure, saturation, depth of field, sharpness, and image grain. Create physically believable contact shadows, reflections, occlusion, and surface interaction where appropriate. Remove halos, rough cutout edges, visual seams, and unnatural overlap.
+
+Modify only the product placement and the immediately related shadow or reflection area. Keep the rest of the target scene unchanged. Add no extra products, text, logos, or watermarks.

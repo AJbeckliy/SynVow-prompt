@@ -10,6 +10,7 @@
 - **图生图提示词控制器**：基于参考图 + 可选主体图，节点内置 RunningHub `model` 下拉框，支持风格/构图/色彩/版式等多维度参考模式。
 - **RH GPT-image2 长卷详情页工作流**：新增 4 个 RunningHub 版详情页节点，支持规划 → 页面结构 → 批量生图提示词 → 长图拼接，适合 9:21 多屏电商详情页。
 - **透明素材生成链路（RH）**：新增透明素材提示词生成器、`RH GPT-Image-2 Alpha (T_batch)` 和透明 PNG URL 保存节点，支持文生透明素材、参考图拆层、UI 图标套装、游戏道具、节日活动素材等场景。
+- **RH GPT-Image-2 产品六合一**：一个节点完成产品精修、场景融合、模糊高清、物品移除、产品功能科技特效和白边扩图；支持 Mask、视觉 LLM 提示词增强以及关闭 LLM。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
 - **RunningHub + 第三方双通道**：默认使用 RunningHub LLM 请求方式；需要第三方接口时，连接 `SynVow LLM Settings` 作为备用配置。
@@ -98,6 +99,20 @@
 3. `SynVow 透明PNG保存预览 (RH)`
    - 接入 `image_urls`，按 URL 下载原始图片并保存 RGBA PNG。
    - `save_path` 支持 ComfyUI output 相对路径，也支持 Windows 绝对路径。
+
+### RH GPT-Image-2 产品六合一
+
+节点位于 **SynVow-prompt / 产品图像** 分类，直接输出 ComfyUI `IMAGE`、最终英文提示词和状态信息。
+
+1. 连接主图 `image`，选择产品精修、产品融入场景、模糊图片高清、移除物品、增加光效或扩图。
+2. “产品融入场景”需连接 `reference_image`；“移除物品”和“增加光效”可连接加载图像节点的 `MASK`。
+3. “扩图”会自动识别与画布边缘相连的纯白 `#ffffff` 区域并填充，不需要手动画 Mask。
+4. `llm_model` 会读取 RunningHub 当前模型列表；选择具体模型时，LLM 会分析原图和选区并扩写最终提示词，选择“关闭”则直接使用本地模板。
+5. 默认使用 RH GPT-Image-2 低价通道；官方通道支持 `quality`，低价通道会忽略该参数。
+6. 本节点调用的是 RunningHub 标准模型 API，需要 **Enterprise-Shared（企业共享）API Key**；普通 Key 虽可上传图片，但提交模型任务时会返回错误码 `1014`。
+7. 可选的 `llm_config` 在本节点中只用于提供 RunningHub 企业共享 API Key 作为备用来源。不要连接第三方 OpenAI-compatible Key，因为同一 Key 还会用于 RunningHub 图像上传与生成接口。
+
+节点不会向 RH 图像接口发送透明背景字段，生成结果 URL 会自动下载并转换为普通 RGB `IMAGE`。
 
 ### SynVow LLM Settings（第三方备用）
 1. 填写第三方 OpenAI-compatible 接口的 `base_url`、`apikey`、`model_name`

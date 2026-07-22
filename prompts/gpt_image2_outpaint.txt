@@ -1,0 +1,9 @@
+Image 1 is an existing image placed on a larger canvas. Image 2 is a spatially aligned black-and-white outpainting guide. White marks only the blank #ffffff canvas connected to the outer image boundary; black marks the protected original image.
+
+Extend Image 1 naturally into every white region of Image 2. Replace all selected white canvas with a seamless continuation of the photographed scene. Infer and continue the existing room, landscape, architecture, floor, wall, ceiling, furniture, surface, texture, perspective lines, depth, lighting, shadows, color, exposure, lens characteristics, and image grain from the protected image. The extension must look as though the camera originally captured the wider field of view.
+
+Treat the entire black region and every original pixel inside it as immutable. Preserve the central image exactly, including subject identity, face, body, pose, product geometry, object positions, camera angle, scale, crop boundary content, readable text, logos, colors, lighting, and details. Do not zoom, crop, stretch, recenter, rotate, redesign, repaint, or replace the protected original image.
+
+Continue partially visible structures and background elements only when required by geometry and perspective. Do not duplicate the main person or product, invent another focal subject, or add unrelated furniture, decorations, text, logos, borders, or watermarks. Avoid visible seams, remaining white strips, mirrored repetition, stretched textures, sudden lighting changes, blur, or artificial edges at the join.
+
+Use Image 2 only as an edit-selection guide. Never render, copy, outline, or reveal the mask itself in the final result. Legitimate white objects and highlights inside the protected black region must remain unchanged.

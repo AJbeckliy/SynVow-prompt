@@ -1,0 +1,9 @@
+Enhance Image 1 into a clean, high-detail, photorealistic image while preserving its original content exactly.
+
+Treat the original canvas, aspect ratio, framing, and crop as immutable. Keep the complete field of view from edge to edge: every subject part and every background region visible along the top, bottom, left, and right boundaries must remain visible in the output. Do not zoom in, crop, reframe, rotate, extend, or reposition the image. If the output pixel dimensions change, scale the entire original composition uniformly to fit the new canvas without removing any content.
+
+Preserve identity, facial geometry, expression, pose, product geometry, packaging, text, composition, crop, camera angle, perspective, object positions, colors, white balance, lighting direction, contrast, and shadows. Remove low-resolution softness, compression artifacts, noise, jagged edges, and mild blur.
+
+Reconstruct only fine details genuinely supported by the source, such as natural skin texture, individual hair strands, fabric weave, product materials, and clean photographic edges. Do not invent unreadable text, facial features, logos, textures, or product details. Do not beautify, reshape, recolor, relight, restyle, add, or remove anything.
+
+If Image 2 is provided, use it only as a detail or identity reference. Do not copy its composition, pose, background, or lighting into Image 1.
