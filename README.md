@@ -1,16 +1,49 @@
 ﻿# SynVow-Prompt
 
-🛍️ **SynVow 提示词工具集（v1.5）** - ComfyUI 自定义节点：提供电商详情页多屏提示词生成、香蕉电商详情页 V3、RH GPT-image2 长卷详情页、透明素材生成链路、文生图/图生图提示词优化等功能。默认支持 RunningHub LLM 与 GPT-Image-2 标准模型接口，也可通过 `SynVow LLM Settings` 接入任意 OpenAI-compatible 接口。
+[![ComfyUI](https://img.shields.io/badge/ComfyUI-Custom_Nodes-111111)](https://github.com/comfyanonymous/ComfyUI)
+[![RunningHub](https://img.shields.io/badge/RunningHub-API-6C5CE7)](https://www.runninghub.cn/)
+[![GPT--Image--2](https://img.shields.io/badge/GPT--Image--2-Product_Studio-10A37F)](https://github.com/AJbeckliy/SynVow-prompt)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+🛍️ **SynVow 提示词与电商视觉工具集（v1.6）** —— 面向 ComfyUI 的 RunningHub 图像生成与提示词工作流，覆盖产品精修、功能科技特效、Mask 局部编辑、白边扩图、电商详情页、透明素材和多模态提示词优化。
+
+## 🆕 v1.6：RH GPT-Image-2 产品六合一
+
+一个节点完成六类高频产品图片任务，直接输出 ComfyUI `IMAGE`、最终英文提示词和运行状态。
+
+| 模式 | 主要输入 | 用途 |
+|------|----------|------|
+| 产品精修 | `image` | 清理瑕疵、重建材质与商业级棚拍质感 |
+| 产品融入场景 | `image` + `reference_image` | 将产品自然融合到目标场景并匹配透视、光影和接触关系 |
+| 模糊图片高清 | `image` | 在尽量保持原比例、构图和身份特征的前提下恢复细节 |
+| 移除物品 | `image` + `mask` | 移除涂抹区域的对象并重建被遮挡背景 |
+| 增加光效 | `image` + `mask` | 根据产品部件功能生成吸力、气流、扫描、感应、能量流等科技特效 |
+| 扩图 | 带 `#ffffff` 外扩区域的 `image` | 自动识别与画布边缘相连的白区并延展原始环境 |
+
+### 最短接线
+
+```text
+加载图像 ── image ──▶ RH GPT-Image-2 产品六合一 ── images ──▶ 保存图像
+             mask ──▶              │
+                              final_prompt / status
+```
+
+- `llm_model`：自动读取 RunningHub 模型列表；选择模型后会识别原图与 Mask 并增强提示词，选择“关闭”则使用本地英文模板。
+- `model_type`：支持 RH GPT-Image-2 低价通道和官方通道。
+- `aspect_ratio=auto`：根据输入画布自动选择最近的 RH 支持比例。
+
+> [!IMPORTANT]
+> 该节点调用 RunningHub 标准模型 API，需要 **Enterprise-Shared（企业共享）API Key**。普通 Key 可以上传图片，但提交 GPT-Image-2 任务时会返回错误码 `1014`；LLM 网关也只接受 SHARED/enterprise Key。
 
 ## ✨ Features
 
+- **RH GPT-Image-2 产品六合一**：产品精修、场景融合、模糊高清、物品移除、产品功能科技特效和白边扩图；支持 Mask、视觉 LLM 提示词增强以及关闭 LLM。
 - **电商详情页多屏生成**：保留原版 `SynVow 详情页提示词生成器`，支持 `product_image` + `product_image_2/3/4` 多张参考图。
 - **香蕉电商详情页 V3（带参考图）**：新增 `香蕉电商详情页提示词生成器V3-带参考图`，支持 8 张产品参考图 + 4 张风格参考图，严格区分产品外观参考和风格参考。
 - **文生图提示词控制器**：双 LLM Schema 流程，节点内置 RunningHub `model` 下拉框，支持版式选择、文字策略（不加/保留/优化/自动生成）、优化强度等精细控制。
 - **图生图提示词控制器**：基于参考图 + 可选主体图，节点内置 RunningHub `model` 下拉框，支持风格/构图/色彩/版式等多维度参考模式。
 - **RH GPT-image2 长卷详情页工作流**：新增 4 个 RunningHub 版详情页节点，支持规划 → 页面结构 → 批量生图提示词 → 长图拼接，适合 9:21 多屏电商详情页。
 - **透明素材生成链路（RH）**：新增透明素材提示词生成器、`RH GPT-Image-2 Alpha (T_batch)` 和透明 PNG URL 保存节点，支持文生透明素材、参考图拆层、UI 图标套装、游戏道具、节日活动素材等场景。
-- **RH GPT-Image-2 产品六合一**：一个节点完成产品精修、场景融合、模糊高清、物品移除、产品功能科技特效和白边扩图；支持 Mask、视觉 LLM 提示词增强以及关闭 LLM。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
 - **RunningHub + 第三方双通道**：默认使用 RunningHub LLM 请求方式；需要第三方接口时，连接 `SynVow LLM Settings` 作为备用配置。
