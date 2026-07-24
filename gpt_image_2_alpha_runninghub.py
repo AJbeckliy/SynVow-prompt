@@ -15,13 +15,18 @@ import requests
 import urllib3
 from PIL import Image
 
-from .utils import get_runninghub_api_key, make_headers
+from .utils import get_runninghub_openapi_key, make_headers
 
 
 CATEGORY = "SynVow-prompt/透明素材"
-RH_BASE_URL = "https://www.runninghub.ai"
-RH_UPLOAD_URL = f"{RH_BASE_URL}/openapi/v2/media/upload/binary"
-RH_QUERY_URL = f"{RH_BASE_URL}/openapi/v2/query"
+RH_API_BASE_URL_OPTIONS = [
+    "https://www.runninghub.cn/openapi/v2",
+    "https://www.runninghub.ai/openapi/v2",
+]
+RH_API_BASE_URL = RH_API_BASE_URL_OPTIONS[0]
+RH_BASE_URL = RH_API_BASE_URL.rsplit("/openapi/v2", 1)[0]
+RH_UPLOAD_URL = f"{RH_API_BASE_URL}/media/upload/binary"
+RH_QUERY_URL = f"{RH_API_BASE_URL}/query"
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 900
 SUBMIT_RETRY_ATTEMPTS = 2
@@ -100,7 +105,25 @@ def _resolve_api_key(llm_config=None) -> str:
         api_key = (config.get("apikey") or config.get("api_key") or "").strip()
         if api_key:
             return api_key
-    return get_runninghub_api_key()
+    return get_runninghub_openapi_key()
+
+
+def _normalize_api_base_url(api_base_url: str) -> str:
+    value = str(api_base_url or "").strip().rstrip("/")
+    aliases = {
+        "cn": RH_API_BASE_URL_OPTIONS[0],
+        "https://www.runninghub.cn": RH_API_BASE_URL_OPTIONS[0],
+        "ai": RH_API_BASE_URL_OPTIONS[1],
+        "https://www.runninghub.ai": RH_API_BASE_URL_OPTIONS[1],
+    }
+    normalized = aliases.get(value.lower(), value)
+    return normalized if normalized in RH_API_BASE_URL_OPTIONS else RH_API_BASE_URL_OPTIONS[0]
+
+
+def _model_endpoint_url(endpoint_info: Dict[str, Any], request_type: str, api_base_url: str) -> str:
+    configured_url = str(endpoint_info[request_type])
+    endpoint_path = configured_url.split("/openapi/v2/", 1)[-1].lstrip("/")
+    return f"{api_base_url.rstrip('/')}/{endpoint_path}"
 
 
 def _response_error_text(response, limit: int = 1000) -> str:
@@ -261,13 +284,18 @@ def _extract_task_id(data: Any) -> str:
     return ""
 
 
-def _upload_image(api_key: str, image_bytes: bytes, index: int) -> str:
+def _upload_image(
+    api_key: str,
+    image_bytes: bytes,
+    index: int,
+    api_base_url: str = RH_API_BASE_URL,
+) -> str:
     _raise_if_cancelled()
     files = {
         "file": (f"rh_gpt_image_2_ref_{index:02d}.png", image_bytes, "image/png"),
     }
     response = requests.post(
-        RH_UPLOAD_URL,
+        f"{api_base_url.rstrip('/')}/media/upload/binary",
         headers=_auth_headers(api_key),
         files=files,
         timeout=(30, 180),
@@ -279,16 +307,24 @@ def _upload_image(api_key: str, image_bytes: bytes, index: int) -> str:
         raise RuntimeError(f"RunningHub 参考图上传失败 HTTP {response.status_code}: {_response_error_text(response)}") from exc
 
     data = response.json()
+    if isinstance(data, dict) and data.get("code") not in (None, 0):
+        message = data.get("msg") or data.get("message") or "未知错误"
+        raise RuntimeError(f"RunningHub 参考图上传失败：{message} (code={data.get('code')})")
+
     urls = _extract_urls(data)
     if not urls:
         raise RuntimeError(f"RunningHub 参考图上传失败，未解析到 download_url: {str(data)[:500]}")
     return urls[0]
 
 
-def _upload_reference_images(api_key: str, image_bytes_list: List[bytes]) -> List[str]:
+def _upload_reference_images(
+    api_key: str,
+    image_bytes_list: List[bytes],
+    api_base_url: str = RH_API_BASE_URL,
+) -> List[str]:
     urls = []
     for index, image_bytes in enumerate(image_bytes_list, start=1):
-        url = _upload_image(api_key, image_bytes, index)
+        url = _upload_image(api_key, image_bytes, index, api_base_url)
         urls.append(url)
         print(f"[RH GPT-Image-2 Alpha] 上传参考图 {index}/{len(image_bytes_list)}: ...{url[-24:]}")
     return urls
@@ -396,8 +432,13 @@ def _submit_with_retry(api_key: str, endpoint_url: str, payload: Dict[str, Any])
     raise last_exc
 
 
-def _query_task(api_key: str, task_id: str) -> Dict[str, Any]:
-    return _post_json(api_key, RH_QUERY_URL, {"taskId": task_id}, timeout=(30, 120))
+def _query_task(
+    api_key: str,
+    task_id: str,
+    api_base_url: str = RH_API_BASE_URL,
+) -> Dict[str, Any]:
+    query_url = f"{api_base_url.rstrip('/')}/query"
+    return _post_json(api_key, query_url, {"taskId": task_id}, timeout=(30, 120))
 
 
 def _status_from_query(data: Dict[str, Any]) -> str:
@@ -461,13 +502,17 @@ def _find_failure_text(value: Any, depth: int = 0) -> str:
     return ""
 
 
-def _poll_task(api_key: str, task_id: str) -> List[str]:
+def _poll_task(
+    api_key: str,
+    task_id: str,
+    api_base_url: str = RH_API_BASE_URL,
+) -> List[str]:
     deadline = time.time() + POLL_TIMEOUT_SECONDS
     consecutive_errors = 0
     while time.time() < deadline:
         _raise_if_cancelled()
         try:
-            data = _query_task(api_key, task_id)
+            data = _query_task(api_key, task_id, api_base_url)
             consecutive_errors = 0
         except Exception as exc:
             consecutive_errors += 1
@@ -522,6 +567,10 @@ class RunningHubGptImage2Alpha_TBatch:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
+                "api_base_url": (
+                    RH_API_BASE_URL_OPTIONS,
+                    {"default": RH_API_BASE_URL_OPTIONS[0]},
+                ),
                 "prompts_list": ("STRING", {"forceInput": True}),
                 "llm_config": ("SYNVOW_LLM_CONFIG",),
                 "image1": ("IMAGE",),
@@ -546,6 +595,7 @@ class RunningHubGptImage2Alpha_TBatch:
         resolution=None,
         aspect_ratio=None,
         seed=None,
+        api_base_url=RH_API_BASE_URL_OPTIONS[0],
         prompts_list=None,
         llm_config=None,
         image1=None,
@@ -564,6 +614,7 @@ class RunningHubGptImage2Alpha_TBatch:
         resolution = str(_unpack(resolution) or "1K")
         aspect_ratio = str(_unpack(aspect_ratio) or "1:1")
         seed_value = _safe_int(_unpack(seed), 0)
+        api_base_url = _normalize_api_base_url(_unpack(api_base_url))
         llm_config = _unpack(llm_config)
         api_key = _resolve_api_key(llm_config)
         if not api_key:
@@ -579,8 +630,16 @@ class RunningHubGptImage2Alpha_TBatch:
             _unpack(image7),
             _unpack(image8),
         )
-        reference_urls = _upload_reference_images(api_key, reference_bytes) if reference_bytes else []
-        endpoint_url = endpoint_info["image"] if reference_urls else endpoint_info["text"]
+        reference_urls = (
+            _upload_reference_images(api_key, reference_bytes, api_base_url)
+            if reference_bytes
+            else []
+        )
+        endpoint_url = _model_endpoint_url(
+            endpoint_info,
+            "image" if reference_urls else "text",
+            api_base_url,
+        )
         mode = "参考图/拆图" if reference_urls else "文生图"
         prompts = _collect_prompts(prompts_list)
         pbar = comfy.utils.ProgressBar(len(prompts))
@@ -611,7 +670,7 @@ class RunningHubGptImage2Alpha_TBatch:
                 pbar.update(1)
                 continue
             try:
-                urls = _poll_task(api_key, task_id)
+                urls = _poll_task(api_key, task_id, api_base_url)
                 image_urls.extend(urls)
             except Exception as exc:
                 failed_indexes.append(index)
@@ -629,7 +688,8 @@ class RunningHubGptImage2Alpha_TBatch:
         failed_text = f"，失败序号={failed_indexes}" if failed_indexes else ""
         status = (
             f"已完成 URL {successful} 张；model={model}；mode={mode}；"
-            f"resolution={resolution}；aspect_ratio={aspect_ratio}；quality={quality}；"
+            f"api_base_url={api_base_url}；resolution={resolution}；"
+            f"aspect_ratio={aspect_ratio}；quality={quality}；"
             f"background={TRANSPARENT_BACKGROUND_VALUE}(requested){failed_text}。"
             "请连接 image_urls 到 SynVow 透明PNG保存预览。"
         )

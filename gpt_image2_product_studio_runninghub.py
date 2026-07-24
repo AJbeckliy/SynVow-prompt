@@ -17,7 +17,10 @@ from .gpt_image_2_alpha_runninghub import (
     ASPECT_RATIOS,
     MODEL_ENDPOINTS,
     MODEL_OPTIONS,
+    RH_API_BASE_URL_OPTIONS,
     _collect_reference_images,
+    _model_endpoint_url,
+    _normalize_api_base_url,
     _poll_task,
     _resolve_api_key,
     _submit_with_retry,
@@ -435,6 +438,10 @@ class RunningHubGptImage2ProductStudio:
                 "llm_model": _llm_models_input(),
             },
             "optional": {
+                "api_base_url": (
+                    RH_API_BASE_URL_OPTIONS,
+                    {"default": RH_API_BASE_URL_OPTIONS[0]},
+                ),
                 "reference_image": ("IMAGE",),
                 "mask": ("MASK",),
                 "extra_instructions": (
@@ -462,6 +469,7 @@ class RunningHubGptImage2ProductStudio:
         aspect_ratio,
         seed,
         llm_model,
+        api_base_url=RH_API_BASE_URL_OPTIONS[0],
         reference_image=None,
         mask=None,
         extra_instructions="",
@@ -472,6 +480,7 @@ class RunningHubGptImage2ProductStudio:
             raise ValueError("请连接主输入图片 image。")
         mode = _normalize_mode(mode)
         model = model_type if model_type in MODEL_ENDPOINTS else MODEL_OPTIONS[0]
+        api_base_url = _normalize_api_base_url(api_base_url)
         ratio = _closest_aspect_ratio(image) if aspect_ratio == "auto" else aspect_ratio
         mask_guide = None
         outpaint_coverage = None
@@ -523,9 +532,9 @@ class RunningHubGptImage2ProductStudio:
             request_images.append(reference_image)
 
         reference_bytes = _collect_reference_images(*request_images)
-        reference_urls = _upload_reference_images(api_key, reference_bytes)
+        reference_urls = _upload_reference_images(api_key, reference_bytes, api_base_url)
         endpoint_info = MODEL_ENDPOINTS[model]
-        endpoint_url = endpoint_info["image"]
+        endpoint_url = _model_endpoint_url(endpoint_info, "image", api_base_url)
         payload = _build_generation_payload(
             final_prompt, ratio, resolution, quality, reference_urls, model, seed
         )
@@ -537,7 +546,7 @@ class RunningHubGptImage2ProductStudio:
             task_id = _submit_with_retry(api_key, endpoint_url, payload)
         except Exception as exc:
             _raise_friendly_rh_error(exc)
-        image_urls = _poll_task(api_key, task_id)
+        image_urls = _poll_task(api_key, task_id, api_base_url)
         output = _download_images(image_urls)
 
         mask_status = "yes" if mask_guide is not None else "no"
@@ -545,7 +554,7 @@ class RunningHubGptImage2ProductStudio:
             f" white_area={outpaint_coverage:.1%}" if outpaint_coverage is not None else ""
         )
         status = (
-            f"已完成 mode={mode} model={model} ratio={ratio} "
+            f"已完成 mode={mode} model={model} api_base_url={api_base_url} ratio={ratio} "
             f"resolution={resolution} quality={quality} seed={seed} "
             f"mask={mask_status} llm={llm_status}{coverage}"
         )

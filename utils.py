@@ -156,6 +156,35 @@ def get_runninghub_api_key():
     return ""
 
 
+def get_runninghub_openapi_key():
+    """Resolve the RunningHub OpenAPI key using the official platform priority."""
+    try:
+        from server import PromptServer
+        api_key = getattr(PromptServer.instance, "shared_api_key", None)
+        if api_key and isinstance(api_key, str) and api_key.strip() and api_key != "unknown":
+            return api_key.strip()
+    except Exception:
+        pass
+
+    for env_name in ("RH_API_KEY", "RUNNINGHUB_API_KEY"):
+        api_key = (os.environ.get(env_name) or "").strip()
+        if api_key:
+            return api_key
+
+    env_path = Path(__file__).resolve().parent / "config" / ".env"
+    try:
+        if env_path.exists():
+            env_data = _read_env_file(env_path)
+            for env_name in ("RH_API_KEY", "RUNNINGHUB_API_KEY"):
+                api_key = (env_data.get(env_name) or "").strip()
+                if api_key:
+                    return api_key
+    except Exception:
+        pass
+
+    return ""
+
+
 class SynVowLLMSettings:
     @classmethod
     def INPUT_TYPES(cls):
