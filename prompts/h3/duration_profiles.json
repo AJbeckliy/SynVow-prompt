@@ -1,0 +1,22 @@
+{
+  "default": {
+    "5": {"shot_count": [1, 2], "action_count": [2, 5], "ending_seconds": [0.3, 0.6]},
+    "10": {"shot_count": [2, 4], "action_count": [4, 8], "ending_seconds": [0.4, 0.8]},
+    "15": {"shot_count": [3, 6], "action_count": [6, 12], "ending_seconds": [0.5, 1.2]}
+  },
+  "dialogue": {
+    "5": {"shot_count": [1, 2], "action_count": [1, 2], "ending_seconds": [0.3, 0.6]},
+    "10": {"shot_count": [2, 4], "action_count": [2, 4], "ending_seconds": [0.4, 0.8]},
+    "15": {"shot_count": [3, 5], "action_count": [3, 6], "ending_seconds": [0.5, 1.2]}
+  },
+  "action": {
+    "5": {"shot_count": [1, 3], "action_count": [6, 10], "ending_seconds": [0.3, 0.6]},
+    "10": {"shot_count": [2, 5], "action_count": [10, 16], "ending_seconds": [0.4, 0.8]},
+    "15": {"shot_count": [3, 7], "action_count": [14, 20], "ending_seconds": [0.5, 1.2]}
+  },
+  "music_video": {
+    "5": {"shot_count": [1, 2], "action_count": [2, 4], "ending_seconds": [0.4, 0.8]},
+    "10": {"shot_count": [2, 4], "action_count": [3, 6], "ending_seconds": [0.6, 1.0]},
+    "15": {"shot_count": [3, 6], "action_count": [4, 9], "ending_seconds": [0.8, 1.5]}
+  }
+}
