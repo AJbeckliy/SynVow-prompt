@@ -5,7 +5,15 @@
 [![GPT--Image--2](https://img.shields.io/badge/GPT--Image--2-Product_Studio-10A37F)](https://github.com/AJbeckliy/SynVow-prompt)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-🛍️ **SynVow 提示词与电商视觉工具集（v1.7）** —— 面向 ComfyUI 的 RunningHub 图像生成与提示词工作流，覆盖产品精修、功能科技特效、Mask 局部编辑、白边扩图、电商详情页、透明素材和多模态提示词优化。
+🛍️ **SynVow 提示词与电商视觉工具集（v1.8）** —— 面向 ComfyUI 的 RunningHub 图像生成与提示词工作流，覆盖产品精修、功能科技特效、Mask 局部编辑、白边扩图、电商详情页、透明素材和多模态提示词优化。
+
+## 🆕 v1.8：参考图透明分层与国内/国际站模型隔离
+
+- `SynVow 透明素材提示词生成器` 升级为固定2～6层结构，支持LLM规划完整画布坐标、多区域位置和200～500字精简提示词。
+- `SynVow 透明PNG保存预览` 保留模型返回的RGBA，并按LLM规划坐标恢复图层画布、大小和位置；背景层强制完整不透明。
+- 新增 `SynVow PSD图层合成`，将RGBA PNG按规划顺序写入可编辑PSD，可设置保存路径并输出合成预览。
+- 图像生成直接连接RunningHub平台已有的 GPT Image 2.5标准节点；旧 `RH GPT-Image-2 Alpha (T_batch)` 仅保留兼容，不属于本次升级链路。
+- RunningHub LLM模型按站点分别获取和缓存，并仅展示支持图片输入的模型：`.cn` 只显示国内站视觉模型，`.ai` 只显示国际站视觉模型；六合一节点跟随 `api_base_url` 自动选择对应LLM站点。
 
 ## 🆕 v1.7：RunningHub H3 多参考提示词导演
 
@@ -57,7 +65,7 @@ SynVow H3 多参考提示词导演（RunningHub）
                               final_prompt / status
 ```
 
-- `llm_model`：自动读取 RunningHub 模型列表；选择模型后会识别原图与 Mask 并增强提示词，选择“关闭”则使用本地英文模板。
+- `llm_model`：根据 `api_base_url` 自动读取同站点RunningHub模型列表；选择模型后会识别原图与 Mask并增强提示词，选择“关闭”则使用本地英文模板。
 - `model_type`：支持 RH GPT-Image-2 低价通道和官方通道。
 - `aspect_ratio=auto`：根据输入画布自动选择最近的 RH 支持比例。
 
@@ -73,7 +81,7 @@ SynVow H3 多参考提示词导演（RunningHub）
 - **文生图提示词控制器**：双 LLM Schema 流程，节点内置 RunningHub `model` 下拉框，支持版式选择、文字策略（不加/保留/优化/自动生成）、优化强度等精细控制。
 - **图生图提示词控制器**：基于参考图 + 可选主体图，节点内置 RunningHub `model` 下拉框，支持风格/构图/色彩/版式等多维度参考模式。
 - **RH GPT-image2 长卷详情页工作流**：新增 4 个 RunningHub 版详情页节点，支持规划 → 页面结构 → 批量生图提示词 → 长图拼接，适合 9:21 多屏电商详情页。
-- **透明素材生成链路（RH）**：新增透明素材提示词生成器、`RH GPT-Image-2 Alpha (T_batch)` 和透明 PNG URL 保存节点，支持文生透明素材、参考图拆层、UI 图标套装、游戏道具、节日活动素材等场景。
+- **透明素材生成链路（RH）**：透明素材提示词生成器输出分层提示词，连接平台现有 GPT Image 2.5标准节点生成，再由透明PNG保存和PSD合成节点完成交付。
 - **可控场景偏好**：提供 `scene_preference`（混合/生活方式交互/棚拍干净背景）。
 - **严格列表输出**：输出为 `STRING[]`（列表），每个元素对应一屏完整提示词，可直接接到批量生图流程。
 - **RunningHub + 第三方双通道**：默认使用 RunningHub LLM 请求方式；需要第三方接口时，连接 `SynVow LLM Settings` 作为备用配置。
@@ -159,17 +167,20 @@ SynVow H3 多参考提示词导演（RunningHub）
 ### 透明素材生成链路（RH）
 节点位于 **SynVow-prompt / 透明素材** 分类下，建议按下面顺序连接：
 
-1. `SynVow 透明素材提示词生成器 (RH)`
-   - 选择 `scene_preset`，填写 `custom_prompt`，输出 `prompts_list`。
+1. `SynVow 透明素材提示词生成器`
+   - 选择 `scene_preset`；参考图分层时使用 `layer_count`，其它模式使用 `asset_count`。
    - `自动规划(LLM)` 会调用 RunningHub LLM；`规则预设(不调用LLM)` 不会调用 LLM。
+   - `llm_site` 选择国内 `.cn` 或国际 `.ai`，`model` 下拉框只显示对应站点当前可用模型。
    - 如需参考图拆层，将参考图接到 `product_or_reference_image`。
-2. `RH GPT-Image-2 Alpha (T_batch)`
-   - 接入 `prompts_list`，无图像输入时走文生图；有 `image1`~`image8` 时先上传参考图，再走 RunningHub image-to-image。
-   - 只输出 `image_urls` 和 `status`，不输出 `IMAGE/MASK`，避免 Alpha 通道在 tensor 转换中丢失。
-   - 透明素材建议默认使用 `gpt-image-2-低价通道`。实测 `gpt-image-2-官方` 可提交成功，但上游可能返回不带 alpha 的不透明 PNG，保存节点会提示“未检测到透明像素”。
+2. RunningHub平台现有 GPT Image 2.5标准节点
+   - 将分层提示词和参考图连接到平台标准节点，设置 `background=transparent`、`outputFormat=png`。
+   - 背景层提示词需要设置 `background=opaque`；生成节点不由本插件重复实现。
 3. `SynVow 透明PNG保存预览 (RH)`
-   - 接入 `image_urls`，按 URL 下载原始图片并保存 RGBA PNG。
+   - 接入标准节点的结果URL，按URL下载原始图片并保存RGBA PNG。
    - `save_path` 支持 ComfyUI output 相对路径，也支持 Windows 绝对路径。
+   - 连接参考图和 `asset_plan_json` 后，按规划坐标归位图层。
+4. `SynVow PSD图层合成`
+   - 将 `rgba_file_paths` 和 `asset_plan_json` 接入，保存带命名、顺序和隐藏原图参考层的PSD。
 
 ### RH GPT-Image-2 产品六合一
 
@@ -178,7 +189,7 @@ SynVow H3 多参考提示词导演（RunningHub）
 1. 连接主图 `image`，选择产品精修、产品融入场景、模糊图片高清、移除物品、增加光效或扩图。
 2. “产品融入场景”需连接 `reference_image`；“移除物品”和“增加光效”可连接加载图像节点的 `MASK`。
 3. “扩图”会自动识别与画布边缘相连的纯白 `#ffffff` 区域并填充，不需要手动画 Mask。
-4. `llm_model` 会读取 RunningHub 当前模型列表；选择具体模型时，LLM 会分析原图和选区并扩写最终提示词，选择“关闭”则直接使用本地模板。
+4. `llm_model` 会读取 `api_base_url` 对应站点的当前模型列表；选择具体模型时，LLM会分析原图和选区并扩写最终提示词，选择“关闭”则直接使用本地模板。
 5. 默认使用 RH GPT-Image-2 低价通道；官方通道支持 `quality`，低价通道会忽略该参数。
 6. 本节点调用的是 RunningHub 标准模型 API，需要 **Enterprise-Shared（企业共享）API Key**；普通 Key 虽可上传图片，但提交模型任务时会返回错误码 `1014`。
 7. 可选的 `llm_config` 在本节点中只用于提供 RunningHub 企业共享 API Key 作为备用来源。不要连接第三方 OpenAI-compatible Key，因为同一 Key 还会用于 RunningHub 图像上传与生成接口。
@@ -194,7 +205,8 @@ SynVow H3 多参考提示词导演（RunningHub）
 
 - ComfyUI
 - Python 3.8+
-- `requests`、`urllib3`（文生图/图生图控制器依赖，安装后自动满足）
+- `requests`、`urllib3`
+- PSD图层合成需要 Python 3.10+ 和 `psd-tools>=1.19,<2`；旧Python环境仍可使用其它节点
 - RunningHub 环境或支持 RunningHub LLM 的 shared/enterprise API Key
 - 如使用第三方接口，则需要一个 OpenAI-compatible LLM 服务的 API Key
 
