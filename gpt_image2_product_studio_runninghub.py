@@ -27,11 +27,14 @@ from .gpt_image_2_alpha_runninghub import (
     _upload_reference_images,
 )
 from .utils import (
-    RUNNINGHUB_LLM_CHAT_URL,
     default_runninghub_model,
     fetch_runninghub_models,
     make_headers,
     parse_chat_response,
+    resolve_llm_config,
+    resolve_runninghub_site_model,
+    runninghub_llm_site_from_url,
+    runninghub_model_union,
 )
 
 
@@ -111,8 +114,9 @@ def build_product_studio_prompt(mode, extra_instructions="", has_reference=False
 
 
 def _llm_models_input():
-    models = list(dict.fromkeys(fetch_runninghub_models()))
-    default = default_runninghub_model(models)
+    models = runninghub_model_union(require_vision=True)
+    cn_models = fetch_runninghub_models(site="cn", require_vision=True)
+    default = default_runninghub_model(cn_models, site="cn")
     if _LLM_OFF not in models:
         models.append(_LLM_OFF)
     return models, {"default": default}
@@ -167,7 +171,8 @@ def _llm_image_roles(mode, has_mask, has_reference):
 
 
 def _enhance_prompt_with_llm(
-    api_key,
+    llm_api_key,
+    llm_url,
     llm_model,
     mode,
     base_prompt,
@@ -175,7 +180,6 @@ def _enhance_prompt_with_llm(
     image,
     mask_guide=None,
     reference_image=None,
-    seed=0,
 ):
     images = [image]
     if mask_guide is not None:
@@ -211,13 +215,10 @@ def _enhance_prompt_with_llm(
         "temperature": 0.2,
         "stream": False,
     }
-    if int(seed or 0) > 0:
-        payload["seed"] = int(seed) % 2147483647
-
     print(f"[RH ProductStudio] LLM 分析中 mode={mode} model={llm_model}")
     response = requests.post(
-        RUNNINGHUB_LLM_CHAT_URL,
-        headers=make_headers(api_key),
+        llm_url,
+        headers=make_headers(llm_api_key),
         json=payload,
         timeout=(30, 600),
         verify=False,
@@ -481,6 +482,7 @@ class RunningHubGptImage2ProductStudio:
         mode = _normalize_mode(mode)
         model = model_type if model_type in MODEL_ENDPOINTS else MODEL_OPTIONS[0]
         api_base_url = _normalize_api_base_url(api_base_url)
+        llm_site = runninghub_llm_site_from_url(api_base_url)
         ratio = _closest_aspect_ratio(image) if aspect_ratio == "auto" else aspect_ratio
         mask_guide = None
         outpaint_coverage = None
@@ -506,18 +508,39 @@ class RunningHubGptImage2ProductStudio:
         llm_status = "off"
         if llm_model != _LLM_OFF:
             try:
+                requested_llm_model = str(llm_model or "").strip()
+                config = llm_config if isinstance(llm_config, dict) else {}
+                configured_model = str(
+                    config.get("model_name") or config.get("models_name") or ""
+                ).strip()
+                if configured_model:
+                    resolved_llm_model = configured_model
+                    model_fallback = False
+                else:
+                    resolved_llm_model, model_fallback = resolve_runninghub_site_model(
+                        llm_site,
+                        requested_llm_model,
+                        require_vision=True,
+                    )
+                llm_url, llm_api_key, resolved_llm_model = resolve_llm_config(
+                    llm_config,
+                    model_name=resolved_llm_model,
+                    site=llm_site,
+                )
                 final_prompt = _enhance_prompt_with_llm(
-                    api_key,
-                    llm_model,
+                    llm_api_key,
+                    llm_url,
+                    resolved_llm_model,
                     mode,
                     base_prompt,
                     extra_instructions,
                     image,
                     mask_guide=mask_guide,
                     reference_image=reference_image,
-                    seed=seed,
                 )
-                llm_status = llm_model
+                llm_status = f"{llm_site}:{resolved_llm_model}"
+                if model_fallback:
+                    llm_status += f"(fallback from {requested_llm_model})"
             except Exception as exc:
                 llm_status = f"fallback({llm_model})"
                 print(f"[RH ProductStudio] LLM 增强失败，回退本地模板：{exc}")

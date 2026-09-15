@@ -1,15 +1,30 @@
 """synvow-prompts-rh 通用工具模块"""
 
+import asyncio
 import os
 import time
 from pathlib import Path
+from typing import Any, Dict, List
 
 import requests
 
 RUNNINGHUB_LLM_CHAT_URL = "https://llm.runninghub.cn/v1/chat/completions"
+RUNNINGHUB_LLM_SITE_CN = "国内站 (.cn)"
+RUNNINGHUB_LLM_SITE_AI = "国际站 (.ai)"
+RUNNINGHUB_LLM_SITE_OPTIONS = (RUNNINGHUB_LLM_SITE_CN, RUNNINGHUB_LLM_SITE_AI)
+RUNNINGHUB_LLM_SITE_CONFIG = {
+    RUNNINGHUB_LLM_SITE_CN: {
+        "chat_url": "https://llm.runninghub.cn/v1/chat/completions",
+        "models_url": "https://llm.runninghub.cn/v1/models",
+    },
+    RUNNINGHUB_LLM_SITE_AI: {
+        "chat_url": "https://llm.runninghub.ai/v1/chat/completions",
+        "models_url": "https://llm.runninghub.ai/v1/models",
+    },
+}
 RUNNINGHUB_LLM_MODELS_URLS = (
-    "https://llm.runninghub.ai/v1/models",
-    "https://llm.runninghub.cn/v1/models",
+    RUNNINGHUB_LLM_SITE_CONFIG[RUNNINGHUB_LLM_SITE_AI]["models_url"],
+    RUNNINGHUB_LLM_SITE_CONFIG[RUNNINGHUB_LLM_SITE_CN]["models_url"],
 )
 RUNNINGHUB_LLM_MODELS_URL = RUNNINGHUB_LLM_MODELS_URLS[0]
 RUNNINGHUB_DEFAULT_MODELS = [
@@ -19,8 +34,23 @@ RUNNINGHUB_DEFAULT_MODELS = [
     "openai/gpt-5.5",
     "glm-5.2",
 ]
+RUNNINGHUB_DEFAULT_MODELS_BY_SITE = {
+    RUNNINGHUB_LLM_SITE_CN: [
+        "deepseek/deepseek-v4-flash-vision-exp",
+        "glm-5v-turbo",
+        "deepseek/deepseek-v4.1-flash",
+        "qwen/qwen3.7-plus",
+    ],
+    RUNNINGHUB_LLM_SITE_AI: [
+        "google/gemini-3.5-flash",
+        "google/gemini-3.1-pro-preview",
+        "google/gemini-3.1-flash-lite-preview",
+        "openai/gpt-5.5",
+        "glm-5.2",
+    ],
+}
 MODEL_CACHE_TTL_SECONDS = 3600
-RUNNINGHUB_MODEL_CACHE = {"expires_at": 0.0, "models": None}
+RUNNINGHUB_MODEL_CACHE: Dict[str, Dict[str, Any]] = {}
 RUNNINGHUB_FALLBACK_MODELS = [
     "google/gemini-3.1-flash-lite-preview",
     "google/gemini-3.5-flash",
@@ -34,6 +64,28 @@ RUNNINGHUB_FALLBACK_MODELS = [
     "qwen/qwen3.7-max",
     "deepseek/deepseek-v4-pro",
 ]
+RUNNINGHUB_FALLBACK_MODELS_BY_SITE = {
+    RUNNINGHUB_LLM_SITE_CN: [
+        "qwen/qwen3.7-max",
+        "glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "glm-5.1",
+        "glm-5-turbo",
+    ],
+    RUNNINGHUB_LLM_SITE_AI: RUNNINGHUB_FALLBACK_MODELS,
+}
+RUNNINGHUB_FALLBACK_VISION_MODELS_BY_SITE = {
+    RUNNINGHUB_LLM_SITE_CN: [
+        "deepseek/deepseek-v4-flash-vision-exp",
+        "glm-5v-turbo",
+        "deepseek/deepseek-v4.1-flash",
+    ],
+    RUNNINGHUB_LLM_SITE_AI: [
+        "google/gemini-3.5-flash",
+        "deepseek/deepseek-v4-flash-vision-exp",
+        "glm-5v-turbo",
+    ],
+}
 
 
 def parse_chat_response(data):
@@ -62,14 +114,71 @@ def make_headers(apikey):
     }
 
 
-def fetch_runninghub_models(force=False):
+def normalize_runninghub_llm_site(site=None) -> str:
+    text = str(site or "").strip().lower()
+    if text in {
+        "cn",
+        ".cn",
+        "国内",
+        "国内站",
+        RUNNINGHUB_LLM_SITE_CN.lower(),
+        "https://llm.runninghub.cn",
+        "https://llm.runninghub.cn/v1/chat/completions",
+    }:
+        return RUNNINGHUB_LLM_SITE_CN
+    if text in {
+        "ai",
+        ".ai",
+        "国际",
+        "国际站",
+        "hk",
+        RUNNINGHUB_LLM_SITE_AI.lower(),
+        "https://llm.runninghub.ai",
+        "https://llm.runninghub.ai/v1/chat/completions",
+    }:
+        return RUNNINGHUB_LLM_SITE_AI
+    return RUNNINGHUB_LLM_SITE_CN
+
+
+def runninghub_llm_chat_url(site=None) -> str:
+    normalized = normalize_runninghub_llm_site(site)
+    return RUNNINGHUB_LLM_SITE_CONFIG[normalized]["chat_url"]
+
+
+def runninghub_llm_site_from_url(url) -> str:
+    text = str(url or "").strip().lower()
+    return RUNNINGHUB_LLM_SITE_AI if "runninghub.ai" in text else RUNNINGHUB_LLM_SITE_CN
+
+
+def _site_fallback_models(site=None, require_vision=False) -> List[str]:
+    if site is None:
+        if require_vision:
+            return list(RUNNINGHUB_FALLBACK_VISION_MODELS_BY_SITE[RUNNINGHUB_LLM_SITE_AI])
+        return list(RUNNINGHUB_FALLBACK_MODELS)
+    normalized = normalize_runninghub_llm_site(site)
+    if require_vision:
+        return list(RUNNINGHUB_FALLBACK_VISION_MODELS_BY_SITE[normalized])
+    return list(RUNNINGHUB_FALLBACK_MODELS_BY_SITE[normalized])
+
+
+def fetch_runninghub_models(force=False, site=None, require_vision=False):
     now = time.time()
-    cached = RUNNINGHUB_MODEL_CACHE.get("models")
-    if not force and cached and now < float(RUNNINGHUB_MODEL_CACHE.get("expires_at", 0)):
+    normalized_site = normalize_runninghub_llm_site(site) if site is not None else None
+    cache_key = normalized_site or "legacy"
+    cache = RUNNINGHUB_MODEL_CACHE.get(cache_key, {})
+    cache_field = "vision_models" if require_vision else "models"
+    cached = cache.get(cache_field)
+    if not force and cached and now < float(cache.get("expires_at", 0)):
         return list(cached)
 
+    models_urls = (
+        [RUNNINGHUB_LLM_SITE_CONFIG[normalized_site]["models_url"]]
+        if normalized_site
+        else list(RUNNINGHUB_LLM_MODELS_URLS)
+    )
+
     last_error = None
-    for models_url in RUNNINGHUB_LLM_MODELS_URLS:
+    for models_url in models_urls:
         try:
             response = requests.get(models_url, timeout=5)
             response.raise_for_status()
@@ -80,23 +189,79 @@ def fetch_runninghub_models(force=False):
                 if isinstance(item, dict) and str(item.get("id", "")).strip()
             ]
             if models:
-                RUNNINGHUB_MODEL_CACHE["models"] = models
-                RUNNINGHUB_MODEL_CACHE["expires_at"] = now + MODEL_CACHE_TTL_SECONDS
-                return models
+                vision_models = []
+                for item in data.get("data", []):
+                    if not isinstance(item, dict):
+                        continue
+                    model_id = str(item.get("id", "")).strip()
+                    capabilities = item.get("capabilities") if isinstance(item.get("capabilities"), dict) else {}
+                    input_modalities = capabilities.get("input_modalities")
+                    supports_vision = (
+                        capabilities.get("vision") is True
+                        or capabilities.get("multimodal") is True
+                        or (isinstance(input_modalities, list) and "image" in input_modalities)
+                    )
+                    if model_id and supports_vision:
+                        vision_models.append(model_id)
+                RUNNINGHUB_MODEL_CACHE[cache_key] = {
+                    "models": models,
+                    "vision_models": vision_models,
+                    "expires_at": now + MODEL_CACHE_TTL_SECONDS,
+                }
+                selected_models = vision_models if require_vision else models
+                if selected_models:
+                    return selected_models
+                last_error = RuntimeError("model endpoint returned no vision-capable models")
         except Exception as exc:
             last_error = exc
 
     if last_error is not None:
-        print(f"[SynVow LLM] Failed to fetch RunningHub models, using fallback: {type(last_error).__name__}")
+        label = normalized_site or "legacy"
+        print(
+            f"[SynVow LLM] Failed to fetch RunningHub models for {label}, "
+            f"using fallback: {type(last_error).__name__}"
+        )
 
-    return list(RUNNINGHUB_FALLBACK_MODELS)
+    return _site_fallback_models(normalized_site, require_vision=require_vision)
 
 
-def default_runninghub_model(models):
-    for model in RUNNINGHUB_DEFAULT_MODELS:
+def default_runninghub_model(models, site=None):
+    normalized_site = normalize_runninghub_llm_site(site) if site is not None else None
+    preferred = RUNNINGHUB_DEFAULT_MODELS_BY_SITE.get(
+        normalized_site,
+        RUNNINGHUB_DEFAULT_MODELS,
+    )
+    for model in preferred:
         if model in models:
             return model
-    return models[0] if models else RUNNINGHUB_FALLBACK_MODELS[0]
+    fallback = _site_fallback_models(normalized_site)
+    return models[0] if models else fallback[0]
+
+
+def runninghub_model_union(force=False, require_vision=False) -> List[str]:
+    models = []
+    for site in RUNNINGHUB_LLM_SITE_OPTIONS:
+        for model in fetch_runninghub_models(
+            force=force,
+            site=site,
+            require_vision=require_vision,
+        ):
+            if model not in models:
+                models.append(model)
+    return models or list(RUNNINGHUB_FALLBACK_MODELS)
+
+
+def resolve_runninghub_site_model(site, model, force=False, require_vision=False):
+    normalized_site = normalize_runninghub_llm_site(site)
+    models = fetch_runninghub_models(
+        force=force,
+        site=normalized_site,
+        require_vision=require_vision,
+    )
+    requested = str(model or "").strip()
+    if requested in models:
+        return requested, False
+    return default_runninghub_model(models, site=normalized_site), bool(requested)
 
 
 def _read_env_file(env_path):
@@ -210,7 +375,7 @@ class SynVowLLMSettings:
         },)
 
 
-def resolve_llm_config(llm_config=None, base_url="", apikey="", model_name=""):
+def resolve_llm_config(llm_config=None, base_url="", apikey="", model_name="", site=None):
     config = llm_config if isinstance(llm_config, dict) else {}
 
     if config:
@@ -219,7 +384,33 @@ def resolve_llm_config(llm_config=None, base_url="", apikey="", model_name=""):
         resolved_model = (config.get("model_name") or config.get("models_name") or model_name or "").strip()
         return resolved_base_url, resolved_apikey, resolved_model
 
-    resolved_base_url = (base_url or RUNNINGHUB_LLM_CHAT_URL).strip()
+    resolved_base_url = (base_url or runninghub_llm_chat_url(site)).strip()
     resolved_apikey = (apikey or get_runninghub_api_key()).strip()
     resolved_model = (model_name or "").strip()
     return resolved_base_url, resolved_apikey, resolved_model
+
+
+try:
+    from aiohttp import web
+    import server
+
+    @server.PromptServer.instance.routes.get("/synvow-prompt/runninghub-llm-models")
+    async def _runninghub_llm_models(request):
+        site = normalize_runninghub_llm_site(request.query.get("site"))
+        force = request.query.get("force") == "1"
+        require_vision = request.query.get("vision") == "1"
+        loop = asyncio.get_running_loop()
+        models = await loop.run_in_executor(
+            None,
+            fetch_runninghub_models,
+            force,
+            site,
+            require_vision,
+        )
+        return web.json_response({
+            "site": site,
+            "models": models,
+            "default": default_runninghub_model(models, site=site),
+        })
+except Exception:
+    pass
